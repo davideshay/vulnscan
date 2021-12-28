@@ -38,12 +38,12 @@ spec:
          - name: DB_USER
            valueFrom:
              secretKeyRef:
-               name: vulnscan_db_auth
+               name: vulnscan-db-auth
                key: DB_USER
          - name: DB_PASSWORD
            valueFrom:
              secretKeyRef:
-               name: vulnscan_db_auth
+               name: vulnscan-db-auth
                key: DB_PASSWORD
          ports:
          - containerPort: 80
@@ -56,7 +56,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: vulnscan-vulnwevb
+  name: vulnscan-vulnweb
   namespace: vulnscan
 spec:
   ports:

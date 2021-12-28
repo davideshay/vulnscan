@@ -34,12 +34,12 @@ spec:
          - name: DB_USER
            valueFrom:
              secretKeyRef:
-               name: vulnscan_db_auth
+               name: vulnscan-db-auth
                key: DB_USER
          - name: DB_PASSWORD
            valueFrom:
              secretKeyRef:
-               name: vulnscan_db_auth
+               name: vulnscan-db-auth
                key: DB_PASSWORD
          command: ["/bin/bash"]
          args: ["-c", "sleep 5d"]

@@ -54,12 +54,12 @@ data:
              - name: DB_USER
                valueFrom:
                  secretKeyRef:
-                   name: vulnscan_db_auth
+                   name: vulnscan-db-auth
                    key: DB_USER
              - name: DB_PASSWORD
                valueFrom:
                  secretKeyRef:
-                   name: vulnscan_db_auth
+                   name: vulnscan-db-auth
                    key: DB_PASSWORD
              tty: true
              imagePullPolicy: Always
@@ -93,12 +93,12 @@ data:
              - name: DB_USER
                valueFrom:
                  secretKeyRef:
-                   name: vulnscan_db_auth
+                   name: vulnscan-db-auth
                    key: DB_USER
              - name: DB_PASSWORD
                valueFrom:
                  secretKeyRef:
-                   name: vulnscan_db_auth
+                   name: vulnscan-db-auth
                    key: DB_PASSWORD
              tty: true
              imagePullPolicy: Always
@@ -137,12 +137,12 @@ data:
              - name: DB_USER
                valueFrom:
                  secretKeyRef:
-                   name: vulnscan_db_auth
+                   name: vulnscan-db-auth
                    key: DB_USER
              - name: DB_PASSWORD
                valueFrom:
                  secretKeyRef:
-                   name: vulnscan_db_auth
+                   name: vulnscan-db-auth
                    key: DB_PASSWORD
              tty: true
              imagePullPolicy: Always

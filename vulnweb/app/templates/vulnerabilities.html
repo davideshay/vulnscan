@@ -1,6 +1,7 @@
 <html>
 <head>
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.css">
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.1.1/css/buttons.dataTables.min.css">
 <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='jquery.dataTables.yadcf.css') }}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='menu.css') }}">
@@ -38,15 +39,23 @@ span.ellipsis:after{
   }
 </style>
 <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
-<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.js"></script>
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
+<script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.1.1/js/dataTables.buttons.min.js"></script>
+<script type="text/javascript" src="https://cdn.datatables.net/buttons/2.1.1/js/buttons.html5.min.js"></script>
 <script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='jquery.dataTables.yadcf.js') }}"></script>
 <script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='datatable-ellipsis.js') }}"></script>
+
 <script type="text/javascript" language="javascript" class="init">
 
 $(document).ready(function() {
     vTable = $('#data').DataTable( {
         "ajax": { "url" : "/api/vulnerabilities",
                   "dataSrc" : "data"},
+        dom: 'Blfrtip',
+        "buttons": [
+            'excel'
+        ],
         "columns": [
             { "data": "container_id" },
             { "data": "namespace" },
@@ -61,7 +70,7 @@ $(document).ready(function() {
             { "data": "vuln_fix_state" },
             { "data": "vuln_fix_versions" }
         ],
-        "pageLength": 18,
+        "pageLength": 15,
         "scrollX": true,
 
         "columnDefs": [
@@ -93,7 +102,7 @@ $(document).ready(function() {
     yadcf.init(vTable, [
       {column_number: 1, filter_type: 'select'},
       {column_number: 2, filter_type: 'select'},
-      {column_number: 5, filter_type: 'select'},      
+      {column_number: 5, filter_type: 'select'},
       {column_number: 8, filter_type: 'select'},
     ],
     {

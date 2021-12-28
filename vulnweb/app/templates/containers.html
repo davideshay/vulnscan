@@ -31,7 +31,6 @@ span.ellipsis:after{
 <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
 <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.js"></script>
 <script type="text/javascript" charset-"utf8" src=" {{ url_for('static', filename='jquery.dataTables.yadcf.js') }}"></script>
-<script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='menu.js') }}"></script>
 
 <script>
 
@@ -86,7 +85,7 @@ $(document).ready(function() {
             { "data": "vulnscan_generated" },
             { "data": "vulnscan_gen_date" },
         ],
-        "pageLength": 18,
+        "pageLength": 15,
         "scrollX": true,
 
         "columnDefs": [
