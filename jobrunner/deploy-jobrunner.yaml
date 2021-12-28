@@ -1,0 +1,46 @@
+#apiVersion: batch/v1
+#kind: Job
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+   namespace: vulnscan
+   name: vulnscan-jobrunner
+   labels:
+      app: vulnscan-jobrunner
+spec:
+  selector:
+    matchLabels:
+       app: vulnscan-jobrunner
+  template:
+     metadata:
+        labels:
+           app: vulnscan-jobrunner
+     spec:
+#       restartPolicy: OnFailure
+       nodeSelector:
+         kubernetes.io/arch: "amd64"
+       volumes:
+        - name: vulnscan-hostdir
+          hostPath:
+            path: /data/sdata/k3s/apps/vulnscan/jobrunner/app
+            type: Directory
+       serviceAccountName: vulnscan-serviceaccount
+       containers:
+       - name: jobrunner
+         image: registry.shaytech.net/jobrunner:latest
+         command: ["/bin/bash"]
+         args: ["-c", "sleep 5d"]
+         env:
+         - name: JOB_DIR
+           value: '/jobs'
+         - name: JOB_NAMESPACE
+           value: 'vulnscan'
+         - name: JOB_PROCEED_ON_FAIL
+           value: 'TRUE'
+         tty: true
+         imagePullPolicy: Always
+         volumeMounts:
+         - name: vulnscan-hostdir
+           mountPath: /app2
+
+---

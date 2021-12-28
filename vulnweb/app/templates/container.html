@@ -1,0 +1,213 @@
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.css">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='jquery.dataTables.yadcf.css') }}">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='menu.css') }}">
+<style>
+  span.no-show{
+    display: none;
+  }
+span.ellipsis:after{
+    content: "...";
+  }
+
+  table.display {
+    margin: 0;
+  }
+
+</style>
+<script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.js"></script>
+<script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='jquery.dataTables.yadcf.js') }}"></script>
+<script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='datatable-ellipsis.js') }}"></script>
+
+<script type="text/javascript" language="javascript" class="init">
+
+
+
+xmlhttp = new XMLHttpRequest();
+xmlhttp.onload = function() {
+  mytxt=this.responseText;
+  const cobj = JSON.parse(this.responseText);
+  document.getElementById("cid").innerHTML = cobj.id;
+  document.getElementById("cname").innerHTML = cobj.container;
+  document.getElementById("namespace").innerHTML = cobj.namespace;
+  document.getElementById("image").innerHTML = cobj.image;
+  document.getElementById("image_id").innerHTML = cobj.image_id;
+  document.getElementById("pod").innerHTML = cobj.pod;
+  document.getElementById("k8s_running").innerHTML = cobj.k8s_running;
+  document.getElementById("last_pod_scan_date").innerHTML = cobj.last_pod_scan_date;
+  document.getElementById("sbom_generated").innerHTML = cobj.sbom_generated;
+  document.getElementById("sbom_gen_date").innerHTML = cobj.sbom_gen_date;
+  document.getElementById("vulnscan_generated").innerHTML = cobj.vulnscan_generated;
+  document.getElementById("vulnscan_gen_date").innerHTML = cobj.vulnscan_gen_date;
+}
+xmlhttp.open("GET","/api/container?id={{ container_id }}")
+xmlhttp.send();
+
+$(document).ready(function() {
+    sTable = $('#sdata').DataTable( {
+        "ajax": { "url" : "/api/container_sboms?id={{ container_id }}",
+                  "dataSrc" : "data"},
+        "columns": [
+            { "data": "artifact_id" },
+            { "data": "artifact_name" },
+            { "data": "artifact_version" },
+            { "data": "artifact_type" },
+            { "data": "artifact_language" },
+            { "data": "artifact_purl" },
+        ],
+        "pageLength": 10,
+        "scrollX": true,
+
+
+    } );
+
+    yadcf.init(sTable, [
+      {column_number: 1, filter_type: 'select'},
+      {column_number: 3, filter_type: 'select'},
+      {column_number: 4, filter_type: 'select'},
+    ],
+    {
+      cumulative_filtering: true
+    });
+
+    vTable = $('#vdata').DataTable( {
+        "ajax": { "url" : "/api/container_vulnerabilities?id={{ container_id }}",
+                  "dataSrc" : "data"},
+        "columns": [
+            { "data": "artifact_name" },
+            { "data": "artifact_version" },
+            { "data": "vuln_id" },
+            { "data": "vuln_severity" },
+            { "data": "vuln_datasource" },
+            { "data": "vuln_fix_state" },
+            { "data": "vuln_fix_versions" },
+        ],
+        "pageLength": 10,
+        "scrollX": true,
+        "columnDefs": [
+          { "targets": 2,
+            "render": function ( data, type, row, meta ) {
+              if (data != null) {
+              return '<a href="'+row.vuln_datasource+'" target="popup" onclick="window.open(\''+row.vuln_datasource+'\',\'popup\',\'width=800,height=800\'); return false;">'+data+'</a>';}
+              else { return '';} }
+            },
+          { "visible": false, "targets": [4]},
+        ]
+    } );
+
+    yadcf.init(vTable, [
+      {column_number: 0, filter_type: 'select'},
+      {column_number: 3, filter_type: 'select'},
+      {column_number: 4, filter_type: 'select'},
+    ],
+    {
+      cumulative_filtering: true
+    });
+
+
+
+
+} );
+
+
+
+
+
+
+
+
+</script>
+
+
+<title>Container Detail</title>
+</head>
+<body>
+  <div class="navbar">
+    <a href="/containers">Containers</a>
+    <a href="/vulnerabilities">Vulnerabilities</a>
+    <a href="/sboms">Software BOMs</a>
+    <div class="dropdown">
+      <button class="dropbtn">Ignore Lists
+        <i class="fa fa-caret-down"></i>
+      </button>
+      <div class="dropdown-content">
+        <a href="/ignore-global">Global Ignores</a>
+        <a href="/ignore-container">Container Ignores</a>
+      </div>
+    </div>
+  </div>
+  <table id="cdata1" class="display">
+    <tbody>
+      <tr>
+        <td><stromg>ID</strong></td>
+        <td id=cid></td>
+        <td><strong>Namespace</strong></td>
+        <td id=namespace></td>
+        <td><strong>Container</strong></td>
+        <td id=cname></td>
+      </tr>
+      <tr>
+        <td><strong>Image</strong></td>
+        <td id=image></td>
+        <td><strong>Image ID</strong></td>
+        <td id=image_id></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><strong>Pod</strong></td>
+        <td id=pod></td>
+        <td><strong>Running</strong></td>
+        <td id=k8s_running></td>
+        <td><strong>Cluster Date</strong></td>
+        <td id=last_pod_scan_date></td>
+      </tr>
+      <tr>
+        <td><strong>SBOM Exists</strong></td>
+        <td id=sbom_generated></td>
+        <td><strong>SBOM Date</strong></td>
+        <td id=sbom_gen_date></td>
+        <td><strong>Full SBOM</strong></td>
+        <td><a href="/sbom?id={{ container_id }}">Link</a></td>
+      </tr>
+      <tr>
+        <td><strong>Vulnerability Exists</strong></td>
+        <td id=vulnscan_generated></td>
+        <td><strong>Vulnerability Date</strong></td>
+        <td id=vulnscan_gen_date></td>
+        <td><strong>All Vuln. Data</strong></td>
+        <td><a href="/vulnerability?id={{ container_id }}">Link</a></td>
+      </tr>
+  <tbody>
+</table>
+<table id="sdata" class="display">
+  <thead>
+    <tr>
+      <th>Artifact ID</th>
+      <th>Artifact</th>
+      <th>Artifact Version</th>
+      <th>Type</th>
+      <th>Language</th>
+      <th>Purl</th>
+    </tr>
+  </thead>
+</table>
+
+<table id="vdata" class="display">
+  <thead>
+    <tr>
+      <th>Artifact</th>
+      <th>Artifact Version</th>
+      <th>Vulnerability</th>
+      <th>Severity</th>
+      <th>Datasource</th>
+      <th>Fixed</th>
+      <th>Fix Versions</th>
+    </tr>
+  </thead>
+</table>
+
+
+</body>
+</html>

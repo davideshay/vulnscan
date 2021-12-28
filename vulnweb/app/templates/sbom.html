@@ -1,0 +1,40 @@
+<html>
+<head>
+
+<script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='jquery.json-viewer.js') }}"></script>
+<link href="{{ url_for('static',filename='jquery.json-viewer.css') }}" type="text/css" rel="stylesheet">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='menu.css') }}">
+
+
+<title>Software Bill of Materials</title>
+<script>
+window.onload = function() {
+  jsbom={{ data.sbom | tojson | safe }};
+  $('#jsonview').jsonViewer(jsbom,{collapsed: true, withQuotes: false });
+};
+</script>
+</head>
+<body>
+  <div class="navbar">
+    <a href="/containers">Containers</a>
+    <a href="/vulnerabilities">Vulnerabilities</a>
+    <a href="/sboms">Software BOMs</a>
+    <div class="dropdown">
+      <button class="dropbtn">Ignore Lists
+        <i class="fa fa-caret-down"></i>
+      </button>
+      <div class="dropdown-content">
+        <a href="/ignore-global">Global Ignores</a>
+        <a href="/ignore-container">Container Ignores</a>
+      </div>
+    </div>
+  </div>
+
+<h2>Data for Container {{ data.container }} in {{ data.namespace }}</h2>
+<p>With Image {{ data.image }}</p>
+
+<pre id="jsonview"></pre>
+
+</body>
+</html>

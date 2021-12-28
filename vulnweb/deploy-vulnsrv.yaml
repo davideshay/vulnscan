@@ -1,0 +1,94 @@
+#apiVersion: batch/v1
+#kind: Job
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+   namespace: vulnscan
+   name: vulnscan-vulnweb
+   labels:
+      app: vulnscan-vulnweb
+spec:
+  selector:
+    matchLabels:
+       app: vulnscan-vulnweb
+  template:
+     metadata:
+        labels:
+           app: vulnscan-vulnweb
+     spec:
+#       restartPolicy: OnFailure
+       nodeSelector:
+         kubernetes.io/arch: "amd64"
+       volumes:
+        - name: vulnscan-hostdir
+          hostPath:
+            path: /data/sdata/k3s/apps/vulnscan/vulnweb/app
+            type: Directory
+       serviceAccountName: vulnscan-serviceaccount
+       containers:
+       - name: vulnsrv
+         image: registry.shaytech.net/vulnscan-vulnweb:latest
+         command: ["/bin/bash"]
+         args: ["-c", "sleep 5d"]
+         env:
+         - name: DB_HOST
+           value: 'postgres.postgres'
+         - name: DB_NAME
+           value: 'vulnscan'
+         - name: DB_USER
+           valueFrom:
+             secretKeyRef:
+               name: vulnscan_db_auth
+               key: DB_USER
+         - name: DB_PASSWORD
+           valueFrom:
+             secretKeyRef:
+               name: vulnscan_db_auth
+               key: DB_PASSWORD
+         ports:
+         - containerPort: 80
+         tty: true
+         imagePullPolicy: Always
+         volumeMounts:
+         - name: vulnscan-hostdir
+           mountPath: /app2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vulnscan-vulnwevb
+  namespace: vulnscan
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    name: vulnscan-vulnweb
+    protocol: TCP
+  selector:
+    app: vulnscan-vulnweb
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+   namespace: vulnscan
+   name: vulnweb-ingress
+   annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/whitelist-source-range: 10.10.1.1/16,10.210.1.1/24
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+spec:
+   ingressClassName: "nginx"
+   tls:
+      - hosts:
+        - vulnscan.shaytech.net
+   rules:
+   - host: vulnscan.shaytech.net
+     http:
+       paths:
+          - path: /
+            pathType: Prefix
+            backend:
+               service:
+                  name: vulnscan-vulnweb
+                  port:
+                    number: 80

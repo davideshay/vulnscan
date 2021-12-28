@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+   namespace: vulnscan
+   name: vulnscan-sbomgen
+   labels:
+      app: vulnscan-sbomgen
+spec:
+  replicas: 1
+  selector:
+     matchLabels:
+        app: vulnscan-sbomgen
+  template:
+     metadata:
+        labels:
+           app: vulnscan-sbomgen
+     spec:
+       nodeSelector:
+         kubernetes.io/arch: "amd64"
+       volumes:
+        - name: vulnscan-hostdir
+          hostPath:
+            path: /data/sdata/k3s/apps/vulnscan/sbomgen/app
+            type: Directory
+       serviceAccountName: vulnscan-serviceaccount
+       containers:
+       - name: sbomgen
+         image: registry.shaytech.net/vulnscan-sbomgen:latest
+         command: ["/bin/bash"]
+         args: ["-c", "sleep 5d"]
+         env:
+         - name: DB_HOST
+           value: 'postgres.postgres'
+         - name: DB_NAME
+           value: 'vulnscan'
+         - name: DB_USER
+           valueFrom:
+             secretKeyRef:
+               name: vulnscan_db_auth
+               key: DB_USER
+         - name: DB_PASSWORD
+           valueFrom:
+             secretKeyRef:
+               name: vulnscan_db_auth
+               key: DB_PASSWORD
+         tty: true
+         imagePullPolicy: Always
+         volumeMounts:
+         - name: vulnscan-hostdir
+           mountPath: /app2
+         resources:
+           requests:
+             memory: 12Gi
+           limits:
+             memory: 16Gi
+
+---

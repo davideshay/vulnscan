@@ -1,0 +1,143 @@
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.css">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='jquery.dataTables.yadcf.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='menu.css') }}">
+<style>
+  span.no-show{
+    display: none;
+  }
+span.ellipsis:after{
+    content: "...";
+  }
+
+  #yadcf-filter--data-1 {
+    width: 100px;
+  }
+  #yadcf-filter--data-2 {
+    width: 125px;
+  }
+  #yadcf-filter--data-3 {
+    width: 200px;
+  }
+  #yadcf-filter--data-4 {
+    width: 175px;
+  }
+  #yadcf-filter--data-5 {
+    width: 150px;
+  }
+  #yadcf-filter--data-6 {
+    width: 125px;
+  }
+  #yadcf-filter--data-8 {
+    width: 100px;
+  }
+  #yadcf-filter--data-11 {
+    width: 125px;
+  }
+</style>
+<script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.js"></script>
+<script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='jquery.dataTables.yadcf.js') }}"></script>
+<script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='datatable-ellipsis.js') }}"></script>
+<script type="text/javascript" language="javascript" class="init">
+
+$(document).ready(function() {
+    vTable = $('#data').DataTable( {
+        "ajax": { "url" : "/api/vulnerabilities",
+                  "dataSrc" : "data"},
+        "columns": [
+            { "data": "container_id" },
+            { "data": "namespace" },
+            { "data": "container" },
+            { "data": "image" },
+            { "data": "image_id" },
+            { "data": "artifact_name" },
+            { "data": "artifact_version" },
+            { "data": "vuln_id" },
+            { "data": "vuln_severity" },
+            { "data": "vuln_datasource" },
+            { "data": "vuln_fix_state" },
+            { "data": "vuln_fix_versions" }
+        ],
+        "pageLength": 18,
+        "scrollX": true,
+
+        "columnDefs": [
+          { "targets": 7,
+            "render": function ( data, type, row, meta ) {
+              if (data != null) {
+              return '<a href="'+row.vuln_datasource+'" target="popup" onclick="window.open(\''+row.vuln_datasource+'\',\'popup\',\'width=800,height=800\'); return false;">'+data+'</a>';}
+              else { return '';} }
+            },
+          { visible: false, targets: [0,4,9]},
+          { "render": $.fn.dataTable.render.ellipsis(15), "targets": 1},
+          { "width": "100px", "targets": 1},
+          { "render": $.fn.dataTable.render.ellipsis(20,true,"'/container?id='+row.container_id"), "targets": 2},
+          { "width": "125px", "targets": 2},
+          { "render": $.fn.dataTable.render.ellipsis(35), "targets": 3},
+          { "width": "200px", "targets": 3},
+          { "render": $.fn.dataTable.render.ellipsis(25), "targets": 5},
+          { "width": "150px", "targets": 5},
+          { "render": $.fn.dataTable.render.ellipsis(20), "targets": 6},
+          { "width": "125px", "targets": 6},
+          { "width": "100px", "targets": 8},
+          { "render": $.fn.dataTable.render.ellipsis(20), "targets": 11},
+          { "width": "125px", "targets": 11},
+
+        ],
+
+    } );
+
+    yadcf.init(vTable, [
+      {column_number: 1, filter_type: 'select'},
+      {column_number: 2, filter_type: 'select'},
+      {column_number: 5, filter_type: 'select'},      
+      {column_number: 8, filter_type: 'select'},
+    ],
+    {
+      cumulative_filtering: true
+    });
+
+} );
+
+</script>
+<title>Vulnerabilities</title>
+</head>
+<body>
+  <div class="navbar">
+    <a href="/containers">Containers</a>
+    <a class="current" href="/vulnerabilities">Vulnerabilities</a>
+    <a href="/sboms">Software BOMs</a>
+    <div class="dropdown">
+      <button class="dropbtn">Ignore Lists
+        <i class="fa fa-caret-down"></i>
+      </button>
+      <div class="dropdown-content">
+        <a href="/ignore-global">Global Ignores</a>
+        <a href="/ignore-container">Container Ignores</a>
+      </div>
+    </div>
+  </div>
+  <table id="data" class="display">
+    <thead>
+        <tr>
+            <th>Container ID</th>
+            <th>Namespace</th>
+            <th>Container</th>
+            <th>Image</th>
+            <th>Image ID</th>
+            <th>Artifact</th>
+            <th>Installed Version</th>
+            <th>Vulnerablity</th>
+            <th>Severity</th>
+            <th>Datasource</th>
+            <th>Fixed</th>
+            <th>Fixed Versions</th>
+        </tr>
+    </thead>
+
+</table>
+</body>
+</html>

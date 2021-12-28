@@ -1,0 +1,44 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+   namespace: vulnscan
+   name: vulnscan-sbomgen
+   labels:
+      app: vulnscan-sbomgen
+spec:
+  template:
+     metadata:
+        labels:
+           app: vulnscan-sbomgen
+     spec:
+       restartPolicy: OnFailure
+       nodeSelector:
+         kubernetes.io/arch: "amd64"
+       serviceAccountName: vulnscan-serviceaccount
+       containers:
+       - name: sbomgen
+         image: registry.shaytech.net/vulnscan-sbomgen:latest
+         env:
+         - name: DB_HOST
+           value: 'postgres.postgres'
+         - name: DB_NAME
+           value: 'vulnscan'
+         - name: DB_USER
+           valueFrom:
+             secretKeyRef:
+               name: vulnscan_db_auth
+               key: DB_USER
+         - name: DB_PASSWORD
+           valueFrom:
+             secretKeyRef:
+               name: vulnscan_db_auth
+               key: DB_PASSWORD
+         tty: true
+         imagePullPolicy: Always
+         resources:
+           requests:
+             memory: 12Gi
+           limits:
+             memory: 16Gi
+
+---
