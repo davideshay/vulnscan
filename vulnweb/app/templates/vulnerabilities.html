@@ -5,6 +5,8 @@
 <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='jquery.dataTables.yadcf.css') }}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='menu.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.7.1/jquery.contextMenu.min.css">
+
 <style>
   span.no-show{
     display: none;
@@ -37,16 +39,67 @@ span.ellipsis:after{
   #yadcf-filter--data-11 {
     width: 125px;
   }
+
+  .modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgb(0,0,0); /* Fallback color */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+  }
+
+  /* Modal Content/Box */
+  .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto; /* 15% from the top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%; /* Could be more or less, depending on screen size */
+  }
+
+  /* The Close Button */
+  .close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+  }
+
+  .close:hover,
+  .close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
+  }
+
 </style>
 <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
 <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.min.js"></script>
 <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
 <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.1.1/js/dataTables.buttons.min.js"></script>
 <script type="text/javascript" src="https://cdn.datatables.net/buttons/2.1.1/js/buttons.html5.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.7.1/jquery.contextMenu.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.7.1/jquery.ui.position.js"></script>
 <script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='jquery.dataTables.yadcf.js') }}"></script>
 <script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='datatable-ellipsis.js') }}"></script>
 
 <script type="text/javascript" language="javascript" class="init">
+
+function vuln_ignore_prompt(key, row) {
+  if (key == "ignore") {
+    $('#modalform').modal('open');
+  }
+  return true;
+}
+
+
+
+
 
 $(document).ready(function() {
     vTable = $('#data').DataTable( {
@@ -99,6 +152,24 @@ $(document).ready(function() {
 
     } );
 
+
+        $(function(){
+            $('#data tbody').contextMenu({
+                selector: 'tr',
+                callback: function(key, options) {
+                    var row = vTable.row(options.$trigger)
+                    vuln_ignore_prompt(key,row)
+                    window.console && console.log(m) || alert(m);
+                },
+                items: {
+                    "ignore": {name: "Ignore Vulnerability", icon: "add"},
+                    "cancel": {name: "Cancel", icon: function($element, key, item){ return 'context-menu-icon context-menu-icon-quit'; }}
+                }
+            });
+        });
+
+
+
     yadcf.init(vTable, [
       {column_number: 1, filter_type: 'select'},
       {column_number: 2, filter_type: 'select'},
@@ -115,6 +186,18 @@ $(document).ready(function() {
 <title>Vulnerabilities</title>
 </head>
 <body>
+  <div id="modalform" class="modal">
+    <div class="modal-content">
+      <h1>Add New IgnoreList Value</h1>
+      <h3>Use * for Wildcards in any entry</h3>
+      <label for="namespace">Namespace:</label>
+      <select id="modal-sel-namespace">
+        <option id="modal-namespace-option">vulnscan</option>
+        <option>*</option>
+      </select>
+    </div>
+  </div>
+
   <div class="navbar">
     <a href="/containers">Containers</a>
     <a class="current" href="/vulnerabilities">Vulnerabilities</a>

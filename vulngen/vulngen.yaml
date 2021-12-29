@@ -33,6 +33,8 @@ spec:
              secretKeyRef:
                name: vulnscan-db-auth
                key: DB_PASSWORD
+         - name: REFRESH_ALL
+           value: 'true'
          tty: true
          imagePullPolicy: Always
          resources:

@@ -5,6 +5,7 @@ import os, sys, json, subprocess
 from psycopg.types.json import Json
 
 def loop_db():
+    print("Generating SBOMS for containers running and not yet generated...",flush=True)
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("SELECT id, namespace, container, image, image_id FROM containers WHERE k8s_running AND NOT sbom_generated;")
@@ -31,7 +32,9 @@ def loop_db():
                 conn.commit()
             else:
                 print("ERROR: No SBOM image generated for image " + row["image"],flush=True)
-
+        print("Regenerating materialized SBOM view...", flush=True)
+        cur.execute("REFRESH MATERIALIZED VIEW container_sbom;")
+        print("SBOM view materialized.", flush=True)
 
 # main
 db_host=os.environ.get('DB_HOST')
@@ -41,6 +44,5 @@ db_password=os.environ.get('DB_PASSWORD')
 
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
 
-print("About to loop over containers", flush=True)
 loop_db()
 sys.exit(0)

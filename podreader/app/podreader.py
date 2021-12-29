@@ -1,7 +1,6 @@
-
 from kubernetes import client, config, watch
 import psycopg
-from datetime import datetime
+from datetime import datetime, timedelta
 from psycopg.rows import dict_row
 import sys, os
 
@@ -31,7 +30,7 @@ def check_create_table():
                     )
                 """)
         cur.execute("""
-            create or replace view container_vulnerabilities
+            create or replace view container_vulnerabilities_base
             as
             select id as container_id, namespace, container, image, image_id, pod, k8s_running,
             last_pod_scan_date, sbom_generated , sbom_gen_date,
@@ -48,41 +47,6 @@ def check_create_table():
             order by namespace, container, image, image_id, vuln_id, artifact_name, artifact_version;
             """)
         cur.execute("""
-            create or replace view container_vulnerabilities_id
-            as
-            select row_number() over (order by namespace, container, image, image_id, vuln_id, artifact_name, artifact_version) as id,
-            container_id,namespace, container, image, image_id, pod, k8s_running,
-            last_pod_scan_date, sbom_generated , sbom_gen_date,
-            vulnscan_generated, vulnscan_gen_date,vuln_id, vuln_severity,artifact_name,
-            artifact_version,vuln_description,vuln_datasource,vuln_fix_state,vuln_fix_versions
-            from container_vulnerabilities;
-            """)
-        cur.execute("""
-            CREATE OR REPLACE VIEW public.container_sbom
-            AS
-            SELECT containers.id AS container_id,
-                containers.namespace,
-                containers.container,
-                containers.image,
-                containers.image_id,
-                containers.pod,
-                containers.k8s_running,
-                containers.last_pod_scan_date,
-                containers.sbom_generated,
-                containers.sbom_gen_date,
-                containers.vulnscan_generated,
-                containers.vulnscan_gen_date,
-                s.id as artifact_id,
-                s.name  as artifact_name,
-                s.version  as artifact_version,
-                s.type as artifact_type,
-                s.language as artifact_language,
-                s.purl as artifact_purl
-                FROM containers
-                LEFT JOIN LATERAL jsonb_to_recordset(containers.sbom -> 'artifacts'::text) as s(id text, name text, version text, type text, language text, purl text) ON true
-                ORDER BY containers.namespace, containers.container, containers.image, containers.image_id, s.name;
-            """)
-        cur.execute("""
             create or replace view containers_no_json
             as
             select id, namespace, container, image, image_id, pod,
@@ -91,7 +55,63 @@ def check_create_table():
             from containers
             order by namespace, container, image, image_id;
             """)
-
+        cur.execute("select * from pg_catalog.pg_matviews where matviewname=%s",('container_vulnerabilities',))
+        tbl_exists=bool(cur.rowcount)
+        if not tbl_exists:
+            cur.execute("""
+                create materialized view container_vulnerabilities
+                as
+                select cv.container_id, cv.namespace, cv.container, cv.image, cv.image_id,
+                cv.pod, cv.k8s_running, cv.last_pod_scan_date, cv.sbom_generated, cv.sbom_gen_date,
+                cv.vulnscan_generated, cv.vulnscan_gen_date,
+                cv.vuln_id, cv.vuln_severity, cv.artifact_name, cv.artifact_version,
+                cv.vuln_description, cv.vuln_datasource, cv.vuln_fix_state, cv.vuln_fix_versions
+                from container_vulnerabilities_base cv
+                left join vuln_ignorelist vi
+                on
+                ( (cv.vuln_id = vi.vuln_id) or (vi.vuln_id = '*') )
+                and
+                ( (cv.artifact_name = vi.artifact_name) or (vi.artifact_name = '*') )
+                and
+                ( (cv.artifact_version = vi.artifact_version) or (vi.artifact_version = '*') )
+                and
+                ( (cv."namespace" = vi."namespace") or (vi."namespace" = '*') )
+                and
+                ( (cv.container = vi.container) or (vi.container = '*') )
+                and
+                ( (cv.image = vi.image) or (vi.image = '*') )
+                and
+                ( (cv.image_id = vi.image_id) or (vi.image_id = '*') )
+                where vi.vuln_id is null;
+                """)
+        cur.execute("select * from pg_catalog.pg_matviews where matviewname=%s",('container_sbom',))
+        tbl_exists=bool(cur.rowcount)
+        if not tbl_exists:
+            cur.execute("""
+                CREATE MATERIALIZED VIEW container_sbom
+                AS
+                SELECT containers.id AS container_id,
+                    containers.namespace,
+                    containers.container,
+                    containers.image,
+                    containers.image_id,
+                    containers.pod,
+                    containers.k8s_running,
+                    containers.last_pod_scan_date,
+                    containers.sbom_generated,
+                    containers.sbom_gen_date,
+                    containers.vulnscan_generated,
+                    containers.vulnscan_gen_date,
+                    s.id as artifact_id,
+                    s.name  as artifact_name,
+                    s.version  as artifact_version,
+                    s.type as artifact_type,
+                    s.language as artifact_language,
+                    s.purl as artifact_purl
+                    FROM containers
+                    LEFT JOIN LATERAL jsonb_to_recordset(containers.sbom -> 'artifacts'::text) as s(id text, name text, version text, type text, language text, purl text) ON true
+                    ORDER BY containers.namespace, containers.container, containers.image, containers.image_id, s.name;
+                """)
 
 def check_record(p_conn, p_namespace, p_container, p_image, p_image_id, p_pod):
 #    print("checking mongo for namespace " + p_namespace + " container "+ p_container + " image " + p_image + " id " + p_imageid + " pod " + p_pod,flush=True)
@@ -149,6 +169,19 @@ def loop_pods():
         print(str({"level": "error", "message": str(e), "traceback": traceback.format_exc()}))
         loop_pods()
 
+def expire_conts():
+    if expire_containers:
+        print("Expiring pods older than " + str(expire_days) + " days...")
+    else:
+        print("Expire pods not enabled, skipping expiration")
+        return
+    expire_days_delta = timedelta(days=expire_days)
+    expire_compare_date = datetime.now() - expire_days_delta
+    print("Expiring container records last scanned before " + str(expire_compare_date))
+    with psycopg.connect(pdsn) as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("DELETE FROM containers WHERE (NOT k8s_running) AND last_pod_scan_date <= %s;",(expire_compare_date,))
+        print("Expired " + str(cur.rowcount) + " containers.")
 
 # main
 
@@ -156,6 +189,13 @@ db_host=os.environ.get('DB_HOST')
 db_name=os.environ.get('DB_NAME')
 db_user=os.environ.get('DB_USER')
 db_password=os.environ.get('DB_PASSWORD')
+expire_containers_txt=os.environ.get('EXPIRE_CONTAINERS')
+expire_containers=(expire_containers_txt.upper() in ['1','YES','TRUE'])
+expire_days_txt=os.environ.get('EXPIRE_DAYS')
+if expire_days_txt.isnumeric():
+    expire_days=int(expire_days_txt)
+else:
+    expire_days=5
 
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
 
@@ -167,5 +207,5 @@ print("Loaded cluster config, about to loop pods", flush=True)
 check_create_table()
 loop_pods()
 loop_psql()
+expire_conts()
 sys.exit(0)
-# TODO : archive old records???

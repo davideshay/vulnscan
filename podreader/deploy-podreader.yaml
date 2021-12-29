@@ -45,6 +45,10 @@ spec:
              secretKeyRef:
                name: vulnscan-db-auth
                key: DB_PASSWORD
+         - name: EXPIRE_CONTAINERS
+           value: 'true'
+         - name: EXPIRE_DAYS
+           value: "5"                      
          tty: true
          imagePullPolicy: Always
          volumeMounts:
