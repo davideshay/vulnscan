@@ -1,5 +1,3 @@
-#apiVersion: batch/v1
-#kind: Job
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -16,7 +14,6 @@ spec:
         labels:
            app: vulnscan-vulnweb
      spec:
-#       restartPolicy: OnFailure
        nodeSelector:
          kubernetes.io/arch: "amd64"
        volumes:

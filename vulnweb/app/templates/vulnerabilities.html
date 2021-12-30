@@ -3,19 +3,13 @@
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.css">
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.1.1/css/buttons.dataTables.min.css">
 <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='jquery.dataTables.yadcf.css') }}">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='vulnscan_global.css') }}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='menu.css') }}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.7.1/jquery.contextMenu.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.css" />
 
 
 <style>
-  span.no-show{
-    display: none;
-  }
-span.ellipsis:after{
-    content: "...";
-  }
 
   #yadcf-filter--data-1 {
     width: 100px;
@@ -130,14 +124,22 @@ $(document).ready(function() {
                     var row = vTable.row(options.$trigger)
                     vuln_ignore_prompt(key,row.data())
                 },
-                items: {
-                    "ignore": {name: "Ignore Vulnerability", icon: "add"},
-                    "cancel": {name: "Cancel", icon: function($element, key, item){ return 'context-menu-icon context-menu-icon-quit'; }}
-                }
+                build: function(trig,e) {
+                  var trigrow = vTable.row(trig).data();
+                  var vid = trigrow.vuln_id;
+                  return {
+                    callback: function(key,options) {
+                      var row = vTable.row(options.$trigger);
+                      vuln_ignore_prompt(key,row.data())
+                    },
+                    items: {
+                      "ignore": {name: "Ignore " + vid, icon: "add"},
+                      "cancel": {name: "Cancel", icon: function($element, key, item) {return 'context-menu-icon context-menu-icon-quit';}}
+                    }
+                  }
+                },
             });
         });
-
-
 
     yadcf.init(vTable, [
       {column_number: 1, filter_type: 'select'},
@@ -156,12 +158,15 @@ $(document).ready(function() {
           url: $(this).attr('href'),
           success: function(newHTML, textStatus, jqXHR) {
             $(newHTML).appendTo('body').modal();
-            $('#responseform').on('shown.bs.modal', function (e) {
+            $('#responseform').on($.modal.OPEN, function (e) {
                 setTimeout(() => {
                   $.modal.close();
-                },2000)
-            }
-            );
+                },2000);
+            });
+
+            $('#responseform').on($.modal.CLOSE,function (e) {
+              window.location.replace('/vulnerabilities')
+            });
 
             $('#responseform').modal('show');
           },
@@ -237,7 +242,7 @@ $(document).ready(function() {
         <tr>
         <td><label for="image">Image:</label></td>
         <td>
-          <select name="image">
+          <select name="image" id="modal-image">
             <option id="modal-image-option">{{ image }}</option>
             <option>*</option>
           </select>
@@ -245,13 +250,15 @@ $(document).ready(function() {
         <tr>
         <td><label for="image_id">Image ID:</label></td>
         <td>
-          <select name="image_id">
+          <select name="image_id" id="modal-image-id">
             <option id="modal-image_id-option">{{ image_id }}</option>
             <option>*</option>
           </select>
         </td></tr>
       </table>
+      <div style="text-align:center">
       <p><a href='/api/addignorelist' class="btn" id="addform-submit" rel="ajax:modal">Add to Ignore List</a></p>
+      </div>
     </form>
     <p id="addform-message"></p>
     </div>
