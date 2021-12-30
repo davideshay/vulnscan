@@ -39,7 +39,7 @@ def get_container_vulnerabilities(container_id):
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
-            SELECT artifact_name, artifact_version, vuln_id, vuln_severity, 
+            SELECT artifact_name, artifact_version, vuln_id, vuln_severity,
             vuln_datasource, vuln_fix_state, vuln_fix_versions
             FROM container_vulnerabilities
             WHERE container_id=%s ;
@@ -111,6 +111,35 @@ def get_container(container_id):
         for row in cur:
             return row
 
+def get_ignorelist():
+    ignorelist=[]
+    with psycopg.connect(pdsn) as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("""
+            SELECT vuln_id, artifact_name, artifact_version, namespace, container, image, image_id
+            FROM vuln_ignorelist;
+            """)
+        for row in cur:
+            ignorelist.append(row)
+    return ignorelist
+
+def check_add_ignorelist(vuln_id,artifact_name,artifact_version,namespace,container,image,image_id):
+    with psycopg.connect(pdsn) as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("""
+            INSERT INTO vuln_ignorelist (vuln_id, artifact_name, artifact_version, namespace,
+            container, image, image_id)
+            VALUES (%s,%s,%s,%s,%s,%s,%s);
+            """,(vuln_id,artifact_name,artifact_version,namespace,container,image,image_id))
+        success=bool(cur.rowcount)
+        if success:
+            print("Before refreshing view "+str(datetime.now()))
+            cur.execute("REFRESH MATERIALIZED VIEW container_vulnerabilities;")
+            print("After refreshing view " + str(datetime.now()))
+
+        return bool(cur.rowcount)
+
+
 @app.route('/api/vulnerabilities',methods=['GET'])
 def api_vulnerabilities():
     data={"data": get_vulnerabilities()}
@@ -154,6 +183,30 @@ def api_container():
     else:
         data={}
     return data
+
+@app.route('/api/ignorelist', methods=['GET'])
+def api_ignorelist():
+    data={"data": get_ignorelist()}
+    return data
+
+@app.route('/api/addignorelist', methods=['POST','GET'])
+def api_addignorelist():
+    print('In API run for ignorelist')
+    fm=request.form
+    added=check_add_ignorelist(fm['vuln_id'],fm['artifact_name'],fm['artifact_version'],fm['namespace'] \
+        ,fm['container'],fm['image'],fm['image_id'])
+    if added:
+        formmessage="successfully added, refreshing now..."
+    else:
+        formmessage="Error adding, likely duplicate, check ignorelist tab for details"
+    #f_vuln_id = request.form['fname']
+#    f_artifact_name = request.form['lname']
+#    print('Executing API for ' + f_vuln_id + ' and artifact ' + f_artifact_name,flush=True)
+    return render_template('add_success.html',formmessage=formmessage)
+
+@app.route('/ignorelist', methods = ['GET'])
+def signup():
+    return render_template('ignorelist.html',APP_URL=APP_URL)
 
 @app.route('/vulnerabilities', methods=['GET'])
 def app_vulnerabiliites():
@@ -208,7 +261,7 @@ APP_URL=os.environ.get('APP_URL')
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
 
 if (__name__ == '__main__'):
-    app.run(host='0.0.0.0', port='80')
+    app.run(host='0.0.0.0', port='80',debug=True)
 
 sys.exit(0)
 # TODO : archive old records???

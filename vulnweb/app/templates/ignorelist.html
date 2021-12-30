@@ -12,22 +12,20 @@ span.ellipsis:after{
     content: "...";
   }
 
-#yadcf-filter--data-0 {
-  width: 20px;
+#yadcf-filter--data-5 {
+  width: 225px;
 }
 
-#yadcf-filter--data-2 {
-  width: 100px;
+#yadcf-filter--data-6 {
+  width: 225px;
 }
 
-#yadcf-filter--data-3 {
-  width: 200px;
+table.display {
+  margin: 0;
 }
-
-
-
 
 </style>
+
 <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
 <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.js"></script>
 <script type="text/javascript" charset-"utf8" src=" {{ url_for('static', filename='jquery.dataTables.yadcf.js') }}"></script>
@@ -68,48 +66,36 @@ span.ellipsis:after{
 <script type="text/javascript" language="javascript" class="init">
 
 $(document).ready(function() {
-    vTable = $('#data').DataTable( {
-        "ajax": { "url" : "/api/containers",
+    iTable = $('#data').DataTable( {
+        "ajax": { "url" : "/api/ignorelist",
                   "dataSrc" : "data"},
         "columns": [
-            { "data": "id" },
+            { "data": "vuln_id" },
+            { "data": "artifact_name"},
+            { "data": "artifact_version"},
             { "data": "namespace" },
             { "data": "container" },
             { "data": "image"},
             { "data": "image_id" },
-            { "data": "pod" },
-            { "data": "k8s_running" },
-            { "data": "last_pod_scan_date" },
-            { "data": "sbom_generated" },
-            { "data": "sbom_gen_date" },
-            { "data": "vulnscan_generated" },
-            { "data": "vulnscan_gen_date" },
         ],
         "pageLength": 15,
         "scrollX": true,
 
         "columnDefs": [
-          { visible: false, targets: [6,7,8,9,10,11]},
-          { "targets": 0,
-            "data": "id",
-            "render": function(data, type, row, meta) {
-                return '<a href="/container?id='+data+'">'+data+'</a>';
-            }
-          },
-          { "render": $.fn.dataTable.render.ellipsis(35), "targets": 3},
-          { "width": "225px", "targets": 3},
-          { "render": $.fn.dataTable.render.ellipsis(35), "targets": 4},
-          { "width": "225px", "targets": 4},
+          { "render": $.fn.dataTable.render.ellipsis(35), "targets": 5},
+          { "width": "225px", "targets": 5},
+          { "render": $.fn.dataTable.render.ellipsis(35), "targets": 6},
+          { "width": "225px", "targets": 6},
 
         ],
     } );
 
-    yadcf.init(vTable, [
+    yadcf.init(iTable, [
       {column_number: 0, filter_type: 'select'},
       {column_number: 1, filter_type: 'select'},
       {column_number: 2, filter_type: 'select'},
       {column_number: 3, filter_type: 'select'},
-      {column_number: 5, filter_type: 'select'},
+      {column_number: 4, filter_type: 'select'},
 
     ],
     {
@@ -122,27 +108,22 @@ $(document).ready(function() {
 </head>
 <body>
   <div class="navbar">
-    <a class="current" href="/containers">Containers</a>
+    <a href="/containers">Containers</a>
     <a href="/vulnerabilities">Vulnerabilities</a>
     <a href="/sboms">Software BOMs</a>
-    <a href="/ignorelist">Ignore List</a>
+    <a class="current" href="/ignorelist">Ignore List</a>
   </div>
-  
+
   <table id="data" class="display">
     <thead>
         <tr>
-            <th>ID</th>
+            <th>Vulnerability</th>
+            <th>Artifact</th>
+            <th>Artifact Version</th>
             <th>Namespace</th>
             <th>Container</th>
             <th>Image</th>
             <th>Image ID</th>
-            <th>Pod</th>
-            <th>Running</th>
-            <th>Pod Scanned</th>
-            <th>SBOM Exists</th>
-            <th>SBOM Date</th>
-            <th>Vuln Exists</th>
-            <th>Vuln Date</th>
         </tr>
     </thead>
 
