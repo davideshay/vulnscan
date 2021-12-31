@@ -1,7 +1,7 @@
-#Vulnscan Suite
+# Vulnscan Suite
 Vulnscan is a suite of reporting and analysis tools built on top of anchore's syft utility (to create software bills of material) and grype utility (to scan those SBOMs for vulnerabilities).  This suite is designed to be run on a kubernetes cluster, and scan all running containers. Once scanned and the vulnerability list has been generated (and stored in a local postgres database), a web UI is available to report on your containers, SBOMs and scanned vulnerabilities.  In addition, you can create an "ignore list" at any desired level to ignore false positives from grype and/or ignore vulnerabilities which you may have resolved in other ways or aren't otherwise applicable.
 
-##Components of Vulnscan
+## Components of Vulnscan
 There are 4 main components to the suite:
 
 
@@ -11,7 +11,7 @@ There are 4 main components to the suite:
 4. **Vulnweb** -- this is the Web GUI for the application, with a backend application to serve and process requests, and the frontend files for viewing, as well as providing the "Ignore List" functionality.
 5. **Jobrunner** -- this is an optional component that can be used to run any set of containers in sequence in Kubernetes. In this use case, it can be used to run Podreader, Sbomgen, and Vulngen sequentially in order, and optionally only proceed to the next component if the last one succeeds. If you elect to not use this component, you can simply schedule the components as individual Cronjobs with enough time between them to allow for normal execution speed.
 
-##Recommended Deployment And Installation Approach
+## Recommended Deployment And Installation Approach
 
 If you don't currently have **postgres** installed, follow a guide elsewhere to create a postgres environment that you can use for **Vulnscan**.  It doesn't technically have to be running in the cluster as long as your pods will have access to it.  Once installed, create a new database such as "vulnscan" and a new user , i.e. "vulnscan-admin" that has all administrative privileges to the database.  The database host, database name, user, and password are all passed to the pods as environment variables, and I would recommend you use a secret in order to load them.
 
@@ -362,5 +362,58 @@ spec:
 
 You can use an ingress or provide access whichever way you desire. Sample ingress configuration included above - change host name and other parameters as required, for example to add authentication.
 
+## Web UI Usage
+
+When you open the web UI, you will be presented with a screen like this:
+
+![](https://raw.githubusercontent.com/davideshay/vulnscan/main/docs/vulnscan-container.png)
+
+Here you see the 4 primary screens/modes - **Container List**, **Vulnerability List**, **SBOM List**, and **Ignore List**.
+
+### Container List
+
+The container list shows a list of all "containers" in the database (A pod might have multiple containers). This is a specific, unique combination of the namespace, container "name" from the pod spec, image name, and the image id, or the specific sha256 of the image that is running. 
+
+Container specific sha256 images may change for any given ID if the image is updated in the central repository but the tag name remains the same. This obviously occurs when using tags like "latest" but can also occur in other circumstances, and the SBOM and vulnerabilities could potentially change, so every given image ID is added as a new entry.  If you are using the expiration functionality, older container/image/imageID combinations will expire and disappear from view.  The list shown only considers those where it is currently running in the cluster (this may be changed to a filterable field in a future release)
+
+If you click on the indivudal container, you will see more detail on when it was last scanned and see the pertinent SBOM artifacts and vulnerabilities just for that container, allowing you to focus on security issues for just one container.
+
+From this detail page, if you want extreme granular detail on the SBOM or Vulnerabilities, beyond what is typically shown in the data tables, go to the "Full SBOM" or "Full Vulnerability" link and you can browse or download the full JSON data returned by syft and grype.
+
+### Vulnerability List
+
+This list looks at vulnerabilities across all running containers, and lists all vulnerabilities found across the cluster. From here, you can filter by severity or vulnerability ID (typically a CVE number), which could be useful when searching for recently announced vulnerabilities. Note that sometimes grype will categorize something with a CVE number as a GHSA number, so you might want to check both.
+
+From the vulnerability list, you can actually find a link to more data on the specific vulnerability from the publishing sources, just be clicking on the vulnerability ID.
+
+The vulnerability list also allows you to export the complete list in Excel format, in case you want to further filter and manipulate the data there.
+
+You may find that some vulnerabilities you want to ignore, based on the specifics of that vulnerability and/or relative to your specific software environment. This can be helpful to allow you to focus on those you have not yet analyzed which may be of a higher priority.
+
+To ignore an entry, from the vulnerability list, right click on the desired vulnerability and choose "Ignore Vulnerability XXXX".
+
+### Adding an Ignore List Rule
+
+After selecting to add an ignore list rule, you will be presented a screen which looks like this:
+
+![](/users/davidshay/Desktop/add-ignorelist.png)
+
+For every value other than the Vulnerability ID, you can select either the specific details of  artifact, artifact version, namespace, container, image, and image ID, and ignore only these at this most-specific level; or, you may choose to "wildcard" and of these values (by selecting the asterisk "*" in the dropdown for that element). 
+
+Wildcards allow you to, for instance, ignore this vulnerability whenever it occurs cluster-wide, or maybe ignore it only in one namespace, or for one container name, but irregardless of the specific image or image ID.  They provide substantial flexibility in tailoring the output.
+
+Once you have added an ignore list rule, it will then automatically be filtered out from future displays of vulnerabilities (on the main vulnerability list, or on the container detail page).
+
+### Software BOMS
+
+There is extensive data available as well on every single software component for every container/image/image ID running in the cluster.  This could be helpful for keeping track of which containers rely on other components, or if perhaps a vulnerability has very recently been announced and is not yet being flagged by grype, you could mitigate issues before they become real problems.
+
+This can load extensive amounts of data, and is right now all processed locally, so this could take time to load and filter. This will be improved in a later release.
+
+### Ignore List
+
+This keeps track of all your current ignore list rules, and allows you to delete entries if desired. No editing functionality is currently provided, as it is best to trigger these with all of the correct data from the vulnerabilities page to avoid input errors.
+
+To delete any entries, select the rows as desired (including selecting ranges and/or multiples), then click the delete button at the top.
 
 
