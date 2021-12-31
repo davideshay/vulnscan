@@ -1,4 +1,13 @@
 dbsecret.yaml
 dbsecret.json
+db-sealed-secret.yaml
 .pbuild
 __pycache__
+vulnscan-jobs.yaml
+deploy-jobrunner.yaml
+deploy-podreader.yaml
+deploy-sbomgen.yaml
+deploy-vulngen.yaml
+vulngen.yaml
+deploy-vulnweb.yaml
+vulnweb.yaml

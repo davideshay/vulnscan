@@ -1,0 +1,181 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namespace: vulnscan
+  name: vulnscan-jobs-config
+  labels:
+    app: vulnscan
+data:
+  1-podreader.yaml: |-
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+       namespace: vulnscan
+       generateName: vulnscan-podreader-
+       labels:
+          app: vulnscan-podreader
+    spec:
+      ttlSecondsAfterFinished: 180
+      template:
+         metadata:
+            labels:
+               app: vulnscan-podreader
+         spec:
+           restartPolicy: OnFailure
+           nodeSelector:
+             kubernetes.io/arch: "amd64"
+           serviceAccountName: vulnscan-serviceaccount
+           containers:
+           - name: podreader
+             image: davideshay/vulnscan-podreader:latest
+             env:
+             - name: DB_HOST
+               value: 'postgres.postgres'
+             - name: DB_NAME
+               value: 'vulnscan'
+             - name: DB_USER
+               valueFrom:
+                 secretKeyRef:
+                   name: vulnscan-db-auth
+                   key: DB_USER
+             - name: DB_PASSWORD
+               valueFrom:
+                 secretKeyRef:
+                   name: vulnscan-db-auth
+                   key: DB_PASSWORD
+             - name: EXPIRE_CONTAINERS
+               value: 'true'
+             - name: EXPIRE_DAYS
+               value: "5"
+             tty: true
+             imagePullPolicy: Always
+  2-sbomgen.yaml: |-
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+       namespace: vulnscan
+       name: vulnscan-sbomgen
+       labels:
+          app: vulnscan-sbomgen
+    spec:
+      ttlSecondsAfterFinished: 180
+      template:
+         metadata:
+            labels:
+               app: vulnscan-sbomgen
+         spec:
+           restartPolicy: OnFailure
+           nodeSelector:
+             kubernetes.io/arch: "amd64"
+           serviceAccountName: vulnscan-serviceaccount
+           containers:
+           - name: sbomgen
+             image: davideshay/vulnscan-sbomgen:latest
+             env:
+             - name: DB_HOST
+               value: 'postgres.postgres'
+             - name: DB_NAME
+               value: 'vulnscan'
+             - name: DB_USER
+               valueFrom:
+                 secretKeyRef:
+                   name: vulnscan-db-auth
+                   key: DB_USER
+             - name: DB_PASSWORD
+               valueFrom:
+                 secretKeyRef:
+                   name: vulnscan-db-auth
+                   key: DB_PASSWORD
+             tty: true
+             imagePullPolicy: Always
+             resources:
+               requests:
+                 memory: 12Gi
+               limits:
+                 memory: 16Gi
+  3-vulngen.yaml: |-
+    apiVersion: batch/v1
+    kind: Job
+    metadata:
+       namespace: vulnscan
+       name: vulnscan-vulngen
+       labels:
+          app: vulnscan-vulngen
+    spec:
+      ttlSecondsAfterFinished: 180
+      template:
+         metadata:
+            labels:
+               app: vulnscan-vulngen
+         spec:
+           restartPolicy: OnFailure
+           nodeSelector:
+             kubernetes.io/arch: "amd64"
+           serviceAccountName: vulnscan-serviceaccount
+           containers:
+           - name: vulngen
+             image: davideshay/vulnscan-vulngen:latest
+             env:
+             - name: DB_HOST
+               value: 'postgres.postgres'
+             - name: DB_NAME
+               value: 'vulnscan'
+             - name: DB_USER
+               valueFrom:
+                 secretKeyRef:
+                   name: vulnscan-db-auth
+                   key: DB_USER
+             - name: DB_PASSWORD
+               valueFrom:
+                 secretKeyRef:
+                   name: vulnscan-db-auth
+                   key: DB_PASSWORD
+             - name: REFRESH_ALL
+               value: 'true'
+             tty: true
+             imagePullPolicy: Always
+             resources:
+               requests:
+                 memory: 3Gi
+               limits:
+                 memory: 5Gi
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+   namespace: vulnscan
+   name: vulnscan-jobrunner
+   labels:
+      app: vulnscan-jobrunner
+spec:
+  ttlSecondsAfterFinished: 180
+  template:
+     metadata:
+        labels:
+           app: vulnscan-jobrunner
+     spec:
+       restartPolicy: Never
+       nodeSelector:
+         kubernetes.io/arch: "amd64"
+       volumes:
+       - name: vulnscan-jobs-vol
+         configMap:
+           name: vulnscan-jobs-config
+       serviceAccountName: vulnscan-serviceaccount
+       containers:
+       - name: jobrunner
+         image: davideshay/jobrunner:latest
+         env:
+         - name: JOB_DIR
+           value: '/jobs'
+         - name: JOB_NAMESPACE
+           value: 'vulnscan'
+         - name: JOB_PROCEED_ON_FAIL
+           value: 'FALSE'
+         tty: true
+         imagePullPolicy: Always
+         volumeMounts:
+         - name: vulnscan-jobs-vol
+           mountPath: "/jobs"
+---

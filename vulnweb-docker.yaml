@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+   namespace: vulnscan
+   name: vulnscan-vulnweb
+   labels:
+      app: vulnscan-vulnweb
+spec:
+  selector:
+    matchLabels:
+       app: vulnscan-vulnweb
+  template:
+     metadata:
+        labels:
+           app: vulnscan-vulnweb
+     spec:
+       nodeSelector:
+         kubernetes.io/arch: "amd64"
+       serviceAccountName: vulnscan-serviceaccount
+       containers:
+       - name: vulnsrv
+         image: davideshay/vulnscan-vulnweb:latest
+         env:
+         - name: DB_HOST
+           value: 'postgres.postgres'
+         - name: DB_NAME
+           value: 'vulnscan'
+         - name: DB_USER
+           valueFrom:
+             secretKeyRef:
+               name: vulnscan-db-auth
+               key: DB_USER
+         - name: DB_PASSWORD
+           valueFrom:
+             secretKeyRef:
+               name: vulnscan-db-auth
+               key: DB_PASSWORD
+         ports:
+         - containerPort: 80
+         tty: true
+         imagePullPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vulnscan-vulnweb
+  namespace: vulnscan
+spec:
+  ports:
+  - port: 80
+    targetPort: 80
+    name: vulnscan-vulnweb
+    protocol: TCP
+  selector:
+    app: vulnscan-vulnweb
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+   namespace: vulnscan
+   name: vulnweb-ingress
+   annotations:
+      nginx.ingress.kubernetes.io/ssl-redirect: "true"
+      nginx.ingress.kubernetes.io/whitelist-source-range: 10.10.1.1/16,10.210.1.1/24
+      nginx.ingress.kubernetes.io/enable-cors: "true"
+spec:
+   ingressClassName: "nginx"
+   tls:
+      - hosts:
+        - vulnscan.example.io
+   rules:
+   - host: vulnscan.example.io
+     http:
+       paths:
+          - path: /
+            pathType: Prefix
+            backend:
+               service:
+                  name: vulnscan-vulnweb
+                  port:
+                    number: 80
