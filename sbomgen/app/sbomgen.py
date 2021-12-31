@@ -16,8 +16,6 @@ def loop_db():
         cur.execute("SELECT id, namespace, container, image, image_id FROM containers WHERE k8s_running AND NOT sbom_generated;")
         curupdate = conn.cursor()
         for row in cur:
-#TODO -- perhaps instead of running directly, we should kick off a SEPARATE kubernetes job for EACH sbom that needs to be generated?
-# would be much more efficient
             print(row["image"]+" needs SBOM generated... creating")
             cmdtoexec = ['syft', '-q', row["image_id"], '-o', 'json']
             sbomfile = subprocess.run(cmdtoexec, capture_output=True)

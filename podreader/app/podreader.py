@@ -3,8 +3,7 @@
 #
 # Compares active pods/images against database and adds new ones in
 # Optionally expires old pods no longer running
-
-
+#
 from kubernetes import client, config, watch
 import psycopg
 from datetime import datetime, timedelta
@@ -85,6 +84,7 @@ def check_create_table():
         cur.execute("select * from pg_catalog.pg_matviews where matviewname=%s",('container_vulnerabilities',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
+            print("Initial run, container_vulnerabilities materialized view did not exist, creating")
             cur.execute("""
                 create materialized view container_vulnerabilities
                 as
@@ -114,6 +114,7 @@ def check_create_table():
         cur.execute("select * from pg_catalog.pg_matviews where matviewname=%s",('container_sbom',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
+            print("Initial run, materialized view for container_sbom does not exist, creating")
             cur.execute("""
                 CREATE MATERIALIZED VIEW container_sbom
                 AS
@@ -141,7 +142,6 @@ def check_create_table():
                 """)
 
 def check_record(p_conn, p_namespace, p_container, p_image, p_image_id, p_pod):
-#    print("checking mongo for namespace " + p_namespace + " container "+ p_container + " image " + p_image + " id " + p_imageid + " pod " + p_pod,flush=True)
         cur = p_conn.cursor()
         cur.execute("""
             SELECT * FROM containers WHERE namespace=%s AND container=%s AND image=%s AND image_id=%s;
@@ -163,7 +163,6 @@ def check_record(p_conn, p_namespace, p_container, p_image, p_image_id, p_pod):
 
 def read_pods():
     v1 = client.CoreV1Api()
-#    print("v1 client created", flush=True)
     pod_list = v1.list_pod_for_all_namespaces()
     with psycopg.connect(pdsn) as conn:
         for pod in pod_list.items:
@@ -174,7 +173,7 @@ def read_pods():
                 pods.append(apprec)
 
 def loop_psql():
-    print("Looping through database...",flush=True)
+    print("Checking database pods vs. active pods...",flush=True)
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("SELECT id, namespace, container, pod, image, image_id FROM containers WHERE k8s_running;")
@@ -226,11 +225,9 @@ else:
 
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
 
-print("In main, about to load cluster config", flush=True)
 config.load_incluster_config()
 
 pods = []
-print("Loaded cluster config, about to loop pods", flush=True)
 check_create_table()
 loop_pods()
 loop_psql()
