@@ -6,9 +6,11 @@ __pycache__
 vulnscan-jobs.yaml
 deploy-jobrunner.yaml
 deploy-podreader.yaml
+podreader.yaml
 deploy-sbomgen.yaml
 sbomgen.yaml
 deploy-vulngen.yaml
 vulngen.yaml
 deploy-vulnweb.yaml
 vulnweb.yaml
+testjob.yaml
