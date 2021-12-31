@@ -41,3 +41,12 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/vulnscan-sbomgen:latest
+
+      - name: Sync up docker hub readme
+        uses: meeDamian/sync-readme@v1.0.6
+        with:
+          user: ${{ secrets.DOCKER_USERNAME }}
+          pass: ${{ secrets.DOCKER_PASSWORD }}
+          slug: davideshay/vulnscan-sbomgen
+          readme: README.md
+          description: SBOM generator for VULNSCAN

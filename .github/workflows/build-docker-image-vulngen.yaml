@@ -1,4 +1,4 @@
-name: build-publish-docker-sbomgen
+name: build-publish-docker-vulngen
 on:
   push:
     paths:
@@ -41,3 +41,12 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/vulnscan-vulngen:latest
+
+      - name: Sync up docker hub readme
+        uses: meeDamian/sync-readme@v1.0.6
+        with:
+          user: ${{ secrets.DOCKER_USERNAME }}
+          pass: ${{ secrets.DOCKER_PASSWORD }}
+          slug: davideshay/vulnscan-vulngen
+          readme: README.md
+          description: Vulnerability Scanner/Generator for VULNSCAN
