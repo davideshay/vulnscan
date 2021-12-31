@@ -1,0 +1,8 @@
+name: build-publish-docker
+on: [push]
+jobs:
+  build-it:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses:
