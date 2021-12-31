@@ -7,6 +7,7 @@ vulnscan-jobs.yaml
 deploy-jobrunner.yaml
 deploy-podreader.yaml
 deploy-sbomgen.yaml
+sbomgen.yaml
 deploy-vulngen.yaml
 vulngen.yaml
 deploy-vulnweb.yaml
