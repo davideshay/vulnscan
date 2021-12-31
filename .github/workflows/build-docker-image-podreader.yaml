@@ -2,7 +2,7 @@ name: build-publish-docker-podreader
 on:
   push:
     paths:
-      - 'podreader'
+      - 'podreader/**'
 defaults:
   run:
     working-directory: podreader
