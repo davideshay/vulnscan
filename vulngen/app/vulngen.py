@@ -1,3 +1,9 @@
+### VULNSCAN suite
+# vulngen
+#
+# Run anchore/grype utility to detect vulnerabilities on previously generated SBOMs
+# Results are stored back in database as json field
+#
 import psycopg
 from datetime import datetime
 from psycopg.rows import dict_row
