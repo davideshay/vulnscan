@@ -1,17 +1,23 @@
 name: build-publish-docker-podreader
-on: [push]
+on:
+  push:
+    paths:
+      - 'podreader'
 jobs:
+  defaults:
+    run:
+      working-directory: podreader
   build-it:
     runs-on: ubuntu-latest
     steps:
-      - name: Get latest tag
-        id: vars
-        run: echo ::set-output name=tag::${GITHUB_REF:10}
+#      - name: Get latest tag
+#        id: vars
+#        run: echo ::set-output name=tag::${GITHUB_REF:10}
 
       - name: Clone repository
         uses: actions/checkout@v2
-        with:
-          ref: ${{ steps.vars.outputs.tag }}
+#        with:
+#          ref: ${{ steps.vars.outputs.tag }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -34,4 +40,4 @@ jobs:
           context: ./podreader/
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/ranking:${{ steps.vars.outputs.tag }}
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/vulnscan-podreader:latest
