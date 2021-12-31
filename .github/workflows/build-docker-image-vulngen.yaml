@@ -37,7 +37,7 @@ jobs:
       - name: Build and push
         uses: docker/build-push-action@v2
         with:
-          context: .
+          context: ./vulngen/
           platforms: linux/amd64
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/vulnscan-vulngen:latest
