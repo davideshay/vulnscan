@@ -1,9 +1,11 @@
-name: build-publish-docker
+name: build-publish-docker-podreader
 on: [push]
 jobs:
   build-it:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
+      - uses:
       - name: Get latest tag
         id: vars
         run: echo ::set-output name=tag::${GITHUB_REF:10}
