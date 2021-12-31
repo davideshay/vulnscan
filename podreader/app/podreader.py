@@ -1,3 +1,10 @@
+# VULNSCAN SUITE
+# podreader
+#
+# Compares active pods/images against database and adds new ones in
+# Optionally expires old pods no longer running
+
+
 from kubernetes import client, config, watch
 import psycopg
 from datetime import datetime, timedelta
