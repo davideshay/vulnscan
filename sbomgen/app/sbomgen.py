@@ -1,3 +1,8 @@
+#### VULNSCAN SUITE
+# sbomgen
+#
+# Generate SBOM using anchore/syft utility. Put back as JSON object in database
+#
 import psycopg
 from datetime import datetime
 from psycopg.rows import dict_row
