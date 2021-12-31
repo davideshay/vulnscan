@@ -1,1 +1,1 @@
-kubernetes>=20.13
+kubernetes>=21.7

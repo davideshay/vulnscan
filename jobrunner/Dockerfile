@@ -8,4 +8,4 @@ RUN pip install -r requirements.txt
 
 COPY app/* /app
 
-CMD [ "python3", "/app/jobrunner.py"]
+CMD [ "python", "/app/jobrunner.py"]

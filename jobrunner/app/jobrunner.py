@@ -1,4 +1,9 @@
-
+### VULNSCAN suite
+# jobrunner
+#
+# Runs a series of jobs in the specified job directories (YAML files)
+# Run sequentially by alphabetic order. Will optionally continue or fail if one job fails
+#
 from kubernetes import client, config, watch
 import sys, os, yaml, glob
 
