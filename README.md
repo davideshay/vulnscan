@@ -9,7 +9,7 @@ There are 4 main components to the suite:
 2. **Sbomgen** -- this application looks for any newly available containers in the database that have not yet had a software BOM generated and generates one, storing the results in a json field in the database.
 3. **Vulngen** -- this application looks for any newly available containers in the database that have an SBOM generated but have not been scanned for vulnerabilities. Results are stored in a json field in the database and available for query and display.  It optionally (recommended) can be set to always refresh the vulnerability scan, in case new vulnerabilities have been added to the database after the initial SBOM generation. 
 4. **Vulnweb** -- this is the Web GUI for the application, with a backend application to serve and process requests, and the frontend files for viewing, as well as providing the "Ignore List" functionality.
-5. **Jobrunner** -- this is an optional component that can be used to run any set of containers in sequence in Kubernetes. In this use case, it can be used to run Podreader, Sbomgen, and Vulngen sequentially in order, and optionally only proceed to the next component if the last one succeeds. If you elect to not use this component, you can simply schedule the components as individual Cronjobs with enough time between them to allow for normal execution speed.
+5. **Jobrunner** -- this is an optional component that can be used to run any set of containers in sequence in Kubernetes. In this use case, it can be used to run Podreader, Sbomgen, and Vulngen sequentially in order, and optionally only proceed to the next component if the last one succeeds. If you elect to not use this component, you can simply schedule the components as individual Cronjobs with enough time between them to allow for normal execution speed.  Alternatively, you could use some other sort of DAG tool such as tekton-pipelines.  This utility could also be useful outside of vulnscan and is written generically enough to be used for other purposes where sequential jobs are required.
 
 ## Recommended Deployment And Installation Approach
 
@@ -100,7 +100,7 @@ data:
            serviceAccountName: vulnscan-serviceaccount
            containers:
            - name: podreader
-             image: registry.shaytech.net/vulnscan-podreader:latest
+             image: davideshay/vulnscan-podreader:latest
              env:
              - name: DB_HOST
                value: 'postgres.postgres'
@@ -143,7 +143,7 @@ data:
            serviceAccountName: vulnscan-serviceaccount
            containers:
            - name: sbomgen
-             image: registry.shaytech.net/vulnscan-sbomgen:latest
+             image: davideshay/vulnscan-sbomgen:latest
              env:
              - name: DB_HOST
                value: 'postgres.postgres'
@@ -187,7 +187,7 @@ data:
            serviceAccountName: vulnscan-serviceaccount
            containers:
            - name: vulngen
-             image: registry.shaytech.net/vulnscan-vulngen:latest
+             image: davideshay/vulnscan-vulngen:latest
              env:
              - name: DB_HOST
                value: 'postgres.postgres'
@@ -217,7 +217,7 @@ data:
 
 A few comments on the batch job parameters included here:
 
-* All of the programs (**Podreader**, **Sbomgen**, and **Vulngen**, all need the environment variables DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD passed in order to access the postgres database.
+* All of the programs (**Podreader**, **Sbomgen**, and **Vulngen**) all need the environment variables DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD passed in order to access the postgres database.
 * **Podreader** takes two additional parameters:
 	* EXPIRE_CONTAINERS - set to "true" to have **Podreader** expire/delete containers which are not runnning after a certain number of days. Parameter defaults to true.
 	* EXPIRE_DAYS - expire containers which have not been active on the cluster for the specified number of days. Five (5) is also the default.
@@ -253,7 +253,7 @@ spec:
        serviceAccountName: vulnscan-serviceaccount
        containers:
        - name: jobrunner
-         image: registry.shaytech.net/jobrunner:latest
+         image: davideshay/jobrunner:latest
          env:
          - name: JOB_DIR
            value: '/jobs'
@@ -299,7 +299,7 @@ spec:
        serviceAccountName: vulnscan-serviceaccount
        containers:
        - name: vulnsrv
-         image: registry.shaytech.net/vulnscan-vulnweb:latest
+         image: davideshay/vulnscan-vulnweb:latest
          env:
          - name: DB_HOST
            value: 'postgres.postgres'

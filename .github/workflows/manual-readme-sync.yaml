@@ -1,0 +1,52 @@
+name: manual-readme-sync
+jobs:
+  build-it:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository
+        uses: actions/checkout@v2
+
+      - name: Sync up docker hub readme jobrunner
+        uses: meeDamian/sync-readme@v1.0.6
+        with:
+          user: ${{ secrets.DOCKER_USERNAME }}
+          pass: ${{ secrets.DOCKER_PASSWORD }}
+          slug: davideshay/vulnscan-jobrunner
+          readme: README.md
+          description: Job Runner for VULNSCAN
+
+      - name: Sync up docker hub readme podreader
+        uses: meeDamian/sync-readme@v1.0.6
+        with:
+          user: ${{ secrets.DOCKER_USERNAME }}
+          pass: ${{ secrets.DOCKER_PASSWORD }}
+          slug: davideshay/vulnscan-podreader
+          readme: README.md
+          description: Pod reader for VULNSCAN
+
+      - name: Sync up docker hub readme sbomgen
+        uses: meeDamian/sync-readme@v1.0.6
+        with:
+          user: ${{ secrets.DOCKER_USERNAME }}
+          pass: ${{ secrets.DOCKER_PASSWORD }}
+          slug: davideshay/vulnscan-sbomgen
+          readme: README.md
+          description: SBOM Generator for VULNSCAN
+
+      - name: Sync up docker hub readme vulngen
+        uses: meeDamian/sync-readme@v1.0.6
+        with:
+          user: ${{ secrets.DOCKER_USERNAME }}
+          pass: ${{ secrets.DOCKER_PASSWORD }}
+          slug: davideshay/vulnscan-vulngen
+          readme: README.md
+          description: Vulnerability scanner/generator for VULNSCAN
+
+      - name: Sync up docker hub readme vulnweb
+        uses: meeDamian/sync-readme@v1.0.6
+        with:
+          user: ${{ secrets.DOCKER_USERNAME }}
+          pass: ${{ secrets.DOCKER_PASSWORD }}
+          slug: davideshay/vulnscan-vulnweb
+          readme: README.md
+          description: Web UI for VULNSCAN
