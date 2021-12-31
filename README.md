@@ -396,7 +396,7 @@ To ignore an entry, from the vulnerability list, right click on the desired vuln
 
 After selecting to add an ignore list rule, you will be presented a screen which looks like this:
 
-![](/users/davidshay/Desktop/add-ignorelist.png)
+![](https://raw.githubusercontent.com/davideshay/vulnscan/main/docs/add-ignorelist.png)
 
 For every value other than the Vulnerability ID, you can select either the specific details of  artifact, artifact version, namespace, container, image, and image ID, and ignore only these at this most-specific level; or, you may choose to "wildcard" and of these values (by selecting the asterisk "*" in the dropdown for that element). 
 
