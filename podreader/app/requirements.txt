@@ -1,2 +1,2 @@
-kubernetes>=20.13
+kubernetes>=21.7
 psycopg[binary]>=3.0.7
