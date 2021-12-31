@@ -3,10 +3,10 @@ on:
   push:
     paths:
       - 'podreader'
+defaults:
+  run:
+    working-directory: podreader
 jobs:
-  defaults:
-    run:
-      working-directory: podreader
   build-it:
     runs-on: ubuntu-latest
     steps:
