@@ -12,7 +12,6 @@ app = Flask(__name__, static_folder="static")
 
 def get_vulnerabilities():
     vulns=[]
-    print("Looping through database...",flush=True)
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
@@ -50,7 +49,6 @@ def get_container_vulnerabilities(container_id):
 
 def get_sboms():
     sboms=[]
-    print("Looping through database...",flush=True)
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
@@ -116,7 +114,7 @@ def get_ignorelist():
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
-            SELECT vuln_id, artifact_name, artifact_version, namespace, container, image, image_id
+            SELECT id as ignore_id, vuln_id, artifact_name, artifact_version, namespace, container, image, image_id
             FROM vuln_ignorelist;
             """)
         for row in cur:
@@ -133,12 +131,23 @@ def check_add_ignorelist(vuln_id,artifact_name,artifact_version,namespace,contai
             """,(vuln_id,artifact_name,artifact_version,namespace,container,image,image_id))
         success=bool(cur.rowcount)
         if success:
-            print("Before refreshing view "+str(datetime.now()))
-            cur.execute("REFRESH MATERIALIZED VIEW container_vulnerabilities;")
-            print("After refreshing view " + str(datetime.now()))
-
+            rebuild_vulnerabilities()
         return bool(cur.rowcount)
 
+def check_del_ignorelist(ignore_id):
+    with psycopg.connect(pdsn) as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("""
+            DELETE FROM vuln_ignorelist
+            WHERE (id=%s);
+            """,(ignore_id,))
+        return bool(cur.rowcount)
+
+def rebuild_vulnerabilities():
+    with psycopg.connect(pdsn) as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("REFRESH MATERIALIZED VIEW container_vulnerabilities;")
+        return bool(cur.rowcount)
 
 @app.route('/api/vulnerabilities',methods=['GET'])
 def api_vulnerabilities():
@@ -189,30 +198,51 @@ def api_ignorelist():
     data={"data": get_ignorelist()}
     return data
 
-@app.route('/api/addignorelist', methods=['POST','GET'])
+@app.route('/api/addignorelist', methods=['POST'])
 def api_addignorelist():
-    print('In API run for ignorelist')
     fm=request.form
     added=check_add_ignorelist(fm['vuln_id'],fm['artifact_name'],fm['artifact_version'],fm['namespace'] \
         ,fm['container'],fm['image'],fm['image_id'])
     if added:
-        formmessage="successfully added, refreshing now..."
+        formmessage="Successfully added, refreshing now..."
     else:
         formmessage="Error adding, likely duplicate, check ignorelist tab for details"
-    #f_vuln_id = request.form['fname']
-#    f_artifact_name = request.form['lname']
-#    print('Executing API for ' + f_vuln_id + ' and artifact ' + f_artifact_name,flush=True)
-    return render_template('add_success.html',formmessage=formmessage)
+    return render_template('responseform.html',formmessage=formmessage)
 
-@app.route('/ignorelist', methods = ['GET'])
-def signup():
+@app.route('/api/delignorelist', methods=['POST'])
+def api_delignorelist():
+    dellist=request.get_json()
+    success=True
+    deletedAny = False
+    if len(dellist) > 0:
+        for delitem in dellist:
+            delitemsuccess=check_del_ignorelist(delitem)
+            if delitemsuccess:
+                deletedAny=True
+            else:
+                success = False
+    if deletedAny:
+        rebuild_vulnerabilities()
+    if success:
+        formmessage="Successfully deleted Ignore List, refreshing now..."
+    else:
+        formmessage="Error deleting record. Retry"
+    return render_template('responseform.html',formmessage=formmessage)
+
+@app.route('/subform/addignorelist', methods=['GET'])
+def app_subform_ignorelist():
+    return render_template('add_ignorelist.html')
+
+
+@app.route('/ignorelist/', methods = ['GET'])
+def app_ignorelist():
     return render_template('ignorelist.html',APP_URL=APP_URL)
 
-@app.route('/vulnerabilities', methods=['GET'])
+@app.route('/vulnerabilities/', methods=['GET'])
 def app_vulnerabiliites():
     return render_template('vulnerabilities.html',APP_URL=APP_URL)
 
-@app.route('/vulnerability', methods=['GET'])
+@app.route('/vulnerability/', methods=['GET'])
 def app_vulnerability():
     container_id_str=request.args.get('id',None)
     if container_id_str.isnumeric():
@@ -221,20 +251,20 @@ def app_vulnerability():
         data={}
     return render_template('vulnerability.html', data=data)
 
-@app.route('/containers', methods=['GET'])
+@app.route('/containers/', methods=['GET'])
 def app_containers():
     return render_template('containers.html', APP_URL=APP_URL)
 
-@app.route('/container', methods=['GET'])
+@app.route('/container/', methods=['GET'])
 def app_container():
     container_id=request.args.get('id',None)
     return render_template('container.html',APP_URL=APP_URL, container_id=container_id)
 
-@app.route('/sboms', methods=['GET'])
+@app.route('/sboms/', methods=['GET'])
 def app_sboms():
     return render_template('sboms.html',APP_URL=APP_URL)
 
-@app.route('/sbom', methods=['GET'])
+@app.route('/sbom/', methods=['GET'])
 def app_sbom():
     container_id_str=request.args.get('id',None)
     if container_id_str.isnumeric():

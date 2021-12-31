@@ -2,11 +2,11 @@
 <head>
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.css">
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/buttons/2.1.1/css/buttons.dataTables.min.css">
-<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='jquery.dataTables.yadcf.css') }}">
-<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='vulnscan_global.css') }}">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.7.1/jquery.contextMenu.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.css" />
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='jquery.dataTables.yadcf.css') }}">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='vulnscan_global.css') }}">
 
 
 <style>
@@ -29,6 +29,9 @@
   #yadcf-filter--data-6 {
     width: 125px;
   }
+  #yadcf-filter--data-7 {
+    width: 125px;
+  }
   #yadcf-filter--data-8 {
     width: 100px;
   }
@@ -47,23 +50,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
 <script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='jquery.dataTables.yadcf.js') }}"></script>
 <script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='datatable-ellipsis.js') }}"></script>
+<script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='addignorelist.js')}}" class="init"></script>
 
 <script type="text/javascript" language="javascript" class="init">
-
-function vuln_ignore_prompt(key, row) {
-  if (key == "ignore") {
-    $('#modal-vuln_id-option').text(row.vuln_id);
-    $('#modal-artifact_name-option').text(row.artifact_name);
-    $('#modal-artifact_version-option').text(row.artifact_version);
-    $('#modal-namespace-option').text(row.namespace);
-    $('#modal-container-option').text(row.container);
-    $('#modal-image-option').text(row.image);
-    $('#modal-image_id-option').text(row.image_id);
-    $('#modalform').modal('show');
-  }
-  return true;
-}
-
 
 $(document).ready(function() {
     vTable = $('#data').DataTable( {
@@ -108,6 +97,8 @@ $(document).ready(function() {
           { "width": "150px", "targets": 5},
           { "render": $.fn.dataTable.render.ellipsis(20), "targets": 6},
           { "width": "125px", "targets": 6},
+          { "render": $.fn.dataTable.render.ellipsis(25), "targets": 7},
+          { "width": "125px", "targets": 7},
           { "width": "100px", "targets": 8},
           { "render": $.fn.dataTable.render.ellipsis(20), "targets": 11},
           { "width": "125px", "targets": 11},
@@ -145,44 +136,13 @@ $(document).ready(function() {
       {column_number: 1, filter_type: 'select'},
       {column_number: 2, filter_type: 'select'},
       {column_number: 5, filter_type: 'select'},
+      {column_number: 7, filter_type: 'select'},
       {column_number: 8, filter_type: 'select'},
     ],
     {
       cumulative_filtering: true
     });
 
-    $('#addform-submit').click(function(event) {
-        $('#messageform-message')[0].innerHTML = 'Processing Add Request/Refreshing View, Please Wait'
-        $('#messageform').modal('show');
-        $.ajax({
-          url: $(this).attr('href'),
-          success: function(newHTML, textStatus, jqXHR) {
-            $(newHTML).appendTo('body').modal();
-            $('#responseform').on($.modal.OPEN, function (e) {
-                setTimeout(() => {
-                  $.modal.close();
-                },2000);
-            });
-
-            $('#responseform').on($.modal.CLOSE,function (e) {
-              window.location.replace('/vulnerabilities')
-            });
-
-            $('#responseform').modal('show');
-          },
-          error: function(jqXHR, textStatus, errorThrown) {
-            alert("Error processing add request");
-          },
-          data: $('#ignorelist-form').serialize(),
-          method: "POST"
-
-
-        });
-
-        return false;
-
-    }
-    );
 
 } );
 
@@ -190,85 +150,6 @@ $(document).ready(function() {
 <title>Vulnerabilities</title>
 </head>
 <body>
-  <div id="modalform" class="modal">
-    <div class="modal-content">
-      <h1>Add New IgnoreList Value</h1>
-      <h2>Use * for Wildcards in any entry</h2>
-      <h3>Vulnerability Details to Ignore</h3>
-      <form action="/api/addignorelist" method="post" class="ignorelist-form" id="ignorelist-form">
-      <table>
-        <tr>
-        <td><label for="vuln_id">Vulnerability ID:</label></td>
-        <td>
-          <select name="vuln_id">
-          <option id="modal-vuln_id-option"></option>
-          </select>
-        </td></tr>
-        <tr>
-        <td><label for="artifact_name">Artifact Name:</label></td>
-        <td>
-          <select name="artifact_name">
-            <option id="modal-artifact_name-option">{{ artifact_name }}</option>
-            <option>*</option>
-          </select>
-        </td></tr>
-        <tr>
-        <td><label for="artifact_version">Artifact Version:</label></td>
-        <td>
-          <select name="artifact_version">
-          <option id="modal-artifact_version-option">{{ artifact_version }}</option>
-          <option>*</option>
-          </select>
-        </td></tr>
-      </table>
-      <h3>Container Details (Level to ignore)</h3>
-      <table>
-        <tr>
-        <td><label for="namespace">Namespace:</label></td>
-        <td>
-          <select name="namespace">
-            <option id="modal-namespace-option">{{ namespace }}</option>
-            <option>*</option>
-          </select>
-        </td></tr>
-        <tr>
-        <td><label for="container">Container:</label></td>
-        <td>
-          <select name="container">
-            <option id="modal-container-option">{{ contaner }}</option>
-            <option>*</option>
-          </select>
-        </td></tr>
-        <tr>
-        <td><label for="image">Image:</label></td>
-        <td>
-          <select name="image" id="modal-image">
-            <option id="modal-image-option">{{ image }}</option>
-            <option>*</option>
-          </select>
-        </td></tr>
-        <tr>
-        <td><label for="image_id">Image ID:</label></td>
-        <td>
-          <select name="image_id" id="modal-image-id">
-            <option id="modal-image_id-option">{{ image_id }}</option>
-            <option>*</option>
-          </select>
-        </td></tr>
-      </table>
-      <div style="text-align:center">
-      <p><a href='/api/addignorelist' class="btn" id="addform-submit" rel="ajax:modal">Add to Ignore List</a></p>
-      </div>
-    </form>
-    <p id="addform-message"></p>
-    </div>
-  </div>
-
-  <div id="messageform" class=modal>
-    <div class="modal-content">
-      <h2 id="messageform-message"></h2>
-    </div>
-  </div>
 
   <div class="navbar">
     <a href="/containers">Containers</a>

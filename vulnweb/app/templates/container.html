@@ -1,8 +1,10 @@
 <html>
 <head>
 <link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.7.1/jquery.contextMenu.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.css" />
 <link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='jquery.dataTables.yadcf.css') }}">
-<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='menu.css') }}">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='vulnscan_global.css') }}">
 <style>
   span.no-show{
     display: none;
@@ -18,9 +20,12 @@ span.ellipsis:after{
 </style>
 <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
 <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.7.1/jquery.contextMenu.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-contextmenu/2.7.1/jquery.ui.position.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-modal/0.9.1/jquery.modal.min.js"></script>
 <script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='jquery.dataTables.yadcf.js') }}"></script>
 <script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='datatable-ellipsis.js') }}"></script>
-
+<script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='addignorelist.js')}}" class="init"></script>
 <script type="text/javascript" language="javascript" class="init">
 
 
@@ -104,6 +109,35 @@ $(document).ready(function() {
     ],
     {
       cumulative_filtering: true
+    });
+
+    $(function(){
+        $('#vdata tbody').contextMenu({
+            selector: 'tr',
+            callback: function(key, options) {
+                var row = vTable.row(options.$trigger)
+                vuln_ignore_prompt(key,row.data())
+            },
+            build: function(trig,e) {
+              var trigrow = vTable.row(trig).data();
+              var vid = trigrow.vuln_id;
+              return {
+                callback: function(key,options) {
+                  var row = vTable.row(options.$trigger);
+                  var trigrow = row.data()
+                  trigrow.namespace = $('#namespace').text();
+                  trigrow.container = $('#cname').text();
+                  trigrow.image = $('#image').text();
+                  trigrow.image_id = $('#image_id').text();
+                  vuln_ignore_prompt(key,trigrow);
+                },
+                items: {
+                  "ignore": {name: "Ignore " + vid, icon: "add"},
+                  "cancel": {name: "Cancel", icon: function($element, key, item) {return 'context-menu-icon context-menu-icon-quit';}}
+                }
+              }
+            },
+        });
     });
 
 } );

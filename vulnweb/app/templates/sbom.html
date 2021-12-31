@@ -4,14 +4,20 @@
 <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script type="text/javascript" charset="utf8" src="{{ url_for('static',filename='jquery.json-viewer.js') }}"></script>
 <link href="{{ url_for('static',filename='jquery.json-viewer.css') }}" type="text/css" rel="stylesheet">
-<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='menu.css') }}">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='vulnscan_global.css') }}">
 
 
 <title>Software Bill of Materials</title>
 <script>
+var downfilename="sbom-{{ data.namespace}}-{{ data.container}}.json";
 window.onload = function() {
   jsbom={{ data.sbom | tojson | safe }};
   $('#jsonview').jsonViewer(jsbom,{collapsed: true, withQuotes: false });
+  joutstr = JSON.stringify(jsbom);
+  var dlink=document.getElementById("download-link");
+  dlink.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(joutstr));
+  dlink.setAttribute('download',downfilename);
+
 };
 </script>
 </head>
@@ -23,8 +29,12 @@ window.onload = function() {
     <a href="/ignorelist">Ignore List</a>
   </div>
 
-<h2>Data for Container {{ data.container }} in {{ data.namespace }}</h2>
+<h2>SBOM for Container {{ data.container }} in {{ data.namespace }}</h2>
 <p>With Image {{ data.image }}</p>
+<br>
+<a href="x" class='btn' id="download-link">Download Full JSON</a>
+<br>
+
 
 <pre id="jsonview"></pre>
 

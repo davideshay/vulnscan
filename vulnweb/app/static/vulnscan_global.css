@@ -5,6 +5,12 @@ span.ellipsis:after{
   content: "...";
 }
 
+.divider{
+    width:25px;
+    height:auto;
+    display:inline-block;
+}
+
 .btn {
   font: bold 11px Arial;
   text-decoration: none;

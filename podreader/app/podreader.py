@@ -29,6 +29,26 @@ def check_create_table():
                     vulnscan jsonb
                     )
                 """)
+        cur.execute("select * from information_schema.tables where table_name=%s",('vuln_ignorelist',))
+        tbl_exists=bool(cur.rowcount)
+        if not tbl_exists:
+            print("Initial run, ignorelist table did not exist, creating", flush=True)
+            cur.execute("""
+                CREATE TABLE vuln_ignorelist (
+                    id serial PRIMARY KEY,
+                	vuln_id text NOT NULL,
+                	artifact_name text NOT NULL,
+                	artifact_version text NOT NULL,
+                	"namespace" text NOT NULL,
+                	container text NOT NULL,
+                	image text NOT NULL,
+                	image_id text NOT NULL
+                );
+                """)
+        cur.execute("select * from information_schema.tables where table_name=%s",('containers',))
+        tbl_exists=bool(cur.rowcount)
+        if not tbl_exists:
+            print("Initial run, containers table did not exist, creating", flush=True)
         cur.execute("""
             create or replace view container_vulnerabilities_base
             as
