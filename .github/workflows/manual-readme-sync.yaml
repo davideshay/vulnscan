@@ -1,6 +1,6 @@
 name: manual-readme-sync
 on:
-  workflow-dispatch:
+  workflow_dispatch:
 jobs:
   build-it:
     runs-on: ubuntu-latest
