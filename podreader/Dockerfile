@@ -8,4 +8,4 @@ RUN pip install -r requirements.txt
 
 COPY app/* /app
 
-CMD [ "python3", "/app/podreader.py"]
+CMD [ "python", "/app/podreader.py"]
