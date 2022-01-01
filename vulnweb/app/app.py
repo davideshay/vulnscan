@@ -289,6 +289,6 @@ APP_URL=os.environ.get('APP_URL')
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
 
 if (__name__ == '__main__'):
-    app.run(host='0.0.0.0', port='80',debug=True)
+    app.run(host='0.0.0.0', port='80')
 
 sys.exit(0)

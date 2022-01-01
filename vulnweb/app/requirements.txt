@@ -1,2 +1,2 @@
-psycopg[binary]>=3.0.7
+psycopg[c]>=3.0.7
 flask>=2.0.2
