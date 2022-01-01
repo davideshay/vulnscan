@@ -13,20 +13,17 @@ import sys, os
 def check_create_table():
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor()
-        cur.execute("select * from information_schema.tables where table_name=%s",('containers',))
+        cur.execute("select * from information_schema.tables where table_name=%s",('images',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
-            print("Initial run, containers table did not exist, creating", flush=True)
+            print("Initial run, images table did not exist, creating", flush=True)
             cur.execute("""
-                CREATE TABLE containers (
+                CREATE TABLE images (
                     id serial PRIMARY KEY,
-                    namespace text,
-                    container text,
-                    image text,
-                    image_id text,
-                    pod text,
-                    k8s_running boolean not null,
-                    last_pod_scan_date timestamp with time zone,
+                    image text NOT NULL,
+                    image_id_digest text,
+                    image_running boolean not null,
+                    last_image_scan_date timestamptz NULL,
                     sbom_generated boolean not null,
                     sbom_gen_date timestamp with time zone,
                     sbom jsonb,
@@ -35,6 +32,27 @@ def check_create_table():
                     vulnscan jsonb
                     )
                 """)
+        conn.commit()
+        cur.execute("select * from information_schema.tables where table_name=%s",('containers',))
+        tbl_exists=bool(cur.rowcount)
+        if not tbl_exists:
+            print("Initial run, containers table did not exist, creating", flush=True)
+            cur.execute("""
+                CREATE TABLE containers (
+                    id serial PRIMARY KEY,
+                    namespace text NOT NULL,
+                    container text NOT NULL,
+                    imageid integer,
+                    pod text NOT NULL,
+                    init_container boolean,
+                    container_running boolean,
+                    last_container_scan_date timestamptz NULL,
+                    CONSTRAINT fk_containers_images
+                        FOREIGN KEY(imageid)
+                        REFERENCES images(id)
+                    );
+                """)
+        conn.commit()
         cur.execute("select * from information_schema.tables where table_name=%s",('vuln_ignorelist',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
@@ -48,18 +66,27 @@ def check_create_table():
                 	"namespace" text NOT NULL,
                 	container text NOT NULL,
                 	image text NOT NULL,
-                	image_id text NOT NULL
+                	image_id_digest text NOT NULL
                 );
                 """)
-        cur.execute("select * from information_schema.tables where table_name=%s",('containers',))
-        tbl_exists=bool(cur.rowcount)
-        if not tbl_exists:
-            print("Initial run, containers table did not exist, creating", flush=True)
+        conn.commit()
+        cur.execute("""
+            CREATE OR REPLACE VIEW container_images
+            AS
+            SELECT c.id, c."namespace", c.container, c.init_container, i.image, i.image_id_digest,
+                c.pod, i.image_running, i.last_image_scan_date, c.container_running, c.last_container_scan_date,
+                i.sbom_generated, i.sbom_gen_date, i.sbom,
+                i.vulnscan_generated, i.vulnscan_gen_date, i.vulnscan
+            FROM containers c
+            LEFT JOIN images i ON c.imageid = i.id;
+            """)
+        conn.commit()
         cur.execute("""
             create or replace view container_vulnerabilities_base
             as
-            select id as container_id, namespace, container, image, image_id, pod, k8s_running,
-            last_pod_scan_date, sbom_generated , sbom_gen_date,
+            select id as container_id, namespace, container, init_container, image, image_id_digest, pod,
+            image_running, last_image_scan_date, container_running, last_container_scan_date,
+            sbom_generated , sbom_gen_date,
             vulnscan_generated, vulnscan_gen_date,
             m.vulnerability->>'id' as vuln_id,
             m.vulnerability->>'severity' as vuln_severity, m.artifact->>'name' as artifact_name,
@@ -67,20 +94,23 @@ def check_create_table():
             m.vulnerability->>'dataSource' as vuln_datasource,
             m.vulnerability->'fix'->>'state' as vuln_fix_state,
             m.vulnerability->'fix'->>'versions' as vuln_fix_versions
-            from containers
-            left join lateral jsonb_to_recordset(containers.vulnscan->'matches') as
+            from container_images
+            left join lateral jsonb_to_recordset(container_images.vulnscan->'matches') as
             m(artifact json, vulnerability json ) on true
-            order by namespace, container, image, image_id, vuln_id, artifact_name, artifact_version;
+            order by namespace, container, image, image_id_digest, vuln_id, artifact_name, artifact_version;
             """)
+        conn.commit()
         cur.execute("""
             create or replace view containers_no_json
             as
-            select id, namespace, container, image, image_id, pod,
-            k8s_running, last_pod_scan_date, sbom_generated, sbom_gen_date,
+            select id, namespace, container, init_container, image, image_id_digest, pod,
+            image_running, last_image_scan_date, container_running, last_container_scan_date,
+            sbom_generated, sbom_gen_date,
             vulnscan_generated, vulnscan_gen_date
-            from containers
-            order by namespace, container, image, image_id;
+            from container_images
+            order by namespace, container, image, image_id_digest;
             """)
+        conn.commit()
         cur.execute("select * from pg_catalog.pg_matviews where matviewname=%s",('container_vulnerabilities',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
@@ -88,8 +118,9 @@ def check_create_table():
             cur.execute("""
                 create materialized view container_vulnerabilities
                 as
-                select cv.container_id, cv.namespace, cv.container, cv.image, cv.image_id,
-                cv.pod, cv.k8s_running, cv.last_pod_scan_date, cv.sbom_generated, cv.sbom_gen_date,
+                select cv.container_id, cv.namespace, cv.container, cv.init_container, cv.image, cv.image_id_digest,
+                cv.pod, cv.container_running, cv.last_container_scan_date, cv.sbom_generated, cv.sbom_gen_date,
+                cv.image_running, cv.last_image_scan_date,
                 cv.vulnscan_generated, cv.vulnscan_gen_date,
                 cv.vuln_id, cv.vuln_severity, cv.artifact_name, cv.artifact_version,
                 cv.vuln_description, cv.vuln_datasource, cv.vuln_fix_state, cv.vuln_fix_versions
@@ -108,9 +139,10 @@ def check_create_table():
                 and
                 ( (cv.image = vi.image) or (vi.image = '*') )
                 and
-                ( (cv.image_id = vi.image_id) or (vi.image_id = '*') )
+                ( (cv.image_id_digest = vi.image_id_digest) or (vi.image_id_digest = '*') )
                 where vi.vuln_id is null;
                 """)
+            conn.commit()
         cur.execute("select * from pg_catalog.pg_matviews where matviewname=%s",('container_sbom',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
@@ -118,48 +150,107 @@ def check_create_table():
             cur.execute("""
                 CREATE MATERIALIZED VIEW container_sbom
                 AS
-                SELECT containers.id AS container_id,
-                    containers.namespace,
-                    containers.container,
-                    containers.image,
-                    containers.image_id,
-                    containers.pod,
-                    containers.k8s_running,
-                    containers.last_pod_scan_date,
-                    containers.sbom_generated,
-                    containers.sbom_gen_date,
-                    containers.vulnscan_generated,
-                    containers.vulnscan_gen_date,
+                SELECT c.id AS container_id,
+                    c.namespace,
+                    c.container,
+                    c.init_container,
+                    c.image,
+                    c.image_id_digest,
+                    c.pod,
+                    c.image_running,
+                    c.last_image_scan_date,
+                    c.container_running,
+                    c.last_container_scan_date,
+                    c.sbom_generated,
+                    c.sbom_gen_date,
+                    c.vulnscan_generated,
+                    c.vulnscan_gen_date,
                     s.id as artifact_id,
                     s.name  as artifact_name,
                     s.version  as artifact_version,
                     s.type as artifact_type,
                     s.language as artifact_language,
                     s.purl as artifact_purl
-                    FROM containers
-                    LEFT JOIN LATERAL jsonb_to_recordset(containers.sbom -> 'artifacts'::text) as s(id text, name text, version text, type text, language text, purl text) ON true
-                    ORDER BY containers.namespace, containers.container, containers.image, containers.image_id, s.name;
+                    FROM container_images c
+                    LEFT JOIN LATERAL jsonb_to_recordset(c.sbom -> 'artifacts'::text) as s(id text, name text, version text, type text, language text, purl text) ON true
+                    ORDER BY c.namespace, c.container, c.image, c.image_id_digest, s.name;
                 """)
-
-def check_record(p_conn, p_namespace, p_container, p_image, p_image_id, p_pod):
-        cur = p_conn.cursor()
+            conn.commit()
         cur.execute("""
-            SELECT * FROM containers WHERE namespace=%s AND container=%s AND image=%s AND image_id=%s;
-            """,(p_namespace, p_container, p_image, p_image_id))
-        cont_exists=bool(cur.rowcount)
-        curupdate = p_conn.cursor()
-        if not cont_exists:
-            print("No existing record for image " + p_image + " found... Creating...", flush=True)
-            curupdate.execute("""
-                INSERT INTO containers (namespace, container, image, image_id,
-                    pod, k8s_running, last_pod_scan_date, sbom_generated, vulnscan_generated)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s);""",
-                (p_namespace, p_container, p_image, p_image_id, p_pod, True, datetime.now(), False, False))
+            CREATE OR REPLACE FUNCTION refresh_vuln_view()
+                RETURNS TRIGGER
+                LANGUAGE PLPGSQL
+            AS
+            $$
+            BEGIN
+                REFRESH MATERIALIZED VIEW container_vulnerabilities ;
+                RETURN NEW;
+            END;
+            $$;
+            """)
+        conn.commit()
+        cur.execute("select tgname from pg_catalog.pg_trigger where NOT tgisinternal and tgname=%s",('on_ignorelist_table_update',))
+        tbl_exists=bool(cur.rowcount)
+        if not tbl_exists:
+            print("Initial run, ignorelist trigger being created...")
+            cur.execute("""
+                CREATE TRIGGER on_ignorelist_table_update
+                    AFTER UPDATE OR INSERT OR DELETE
+                    ON vuln_ignorelist
+                    FOR EACH ROW
+                EXECUTE PROCEDURE refresh_vuln_view();
+                """)
+            conn.commit()
+
+
+
+
+
+
+
+
+
+
+
+
+def check_record(p_conn, p_namespace, p_container, p_initcontainer, p_image, p_image_id_digest, p_pod):
+        p_initcontainer_txt=str(p_initcontainer).upper()
+        cur = p_conn.cursor(row_factory=dict_row)
+        cur.execute("SELECT * from images where image = %s AND image_id_digest = %s;",(p_image,p_image_id_digest,))
+        image_exists=bool(cur.rowcount)
+        if not image_exists:
+            print("No record for image " + p_image + "/" + p_image_id_digest + " found. Creating...",flush=True)
+            cur.execute("""
+                INSERT INTO images (image, image_id_digest, image_running, last_image_scan_date,
+                sbom_generated, vulnscan_generated )
+                VALUES (%s, %s,%s,%s,%s,%s) RETURNING id;
+                """,(p_image, p_image_id_digest, True, datetime.now(), False, False))
+            db_image_id=cur.fetchone()["id"]
         else:
-            curupdate.execute("""
-                UPDATE containers SET last_pod_scan_date=%s, k8s_running=%s WHERE
-                namespace=%s AND container=%s AND image=%s AND image_id=%s;
-                """,(datetime.now(), True, p_namespace, p_container, p_image, p_image_id))
+            cur.execute("""
+                SELECT id from images where image=%s AND image_id_digest=%s;
+            """,(p_image,p_image_id_digest))
+            db_image_id=cur.fetchone()["id"]
+            cur.execute("""
+                UPDATE images set image_running=%s, last_image_scan_date=%s
+                WHERE id = %s;
+                """,(True, datetime.now(),db_image_id))
+        cur.execute("""
+            SELECT * FROM containers WHERE namespace=%s AND container=%s AND init_container=%s;
+            """,(p_namespace, p_container, p_initcontainer_txt))
+        cont_exists=bool(cur.rowcount)
+        if not cont_exists:
+            print("No existing record for container " + p_container + " found... Creating...", flush=True)
+            cur.execute("""
+                INSERT INTO containers (namespace, container, init_container, imageid, pod,
+                    container_running, last_container_scan_date )
+                VALUES (%s, %s, %s, %s, %s, %s, %s);""",
+                (p_namespace, p_container, p_initcontainer_txt, db_image_id, p_pod, True, datetime.now()))
+        else:
+            cur.execute("""
+                UPDATE containers SET container_running=%s, last_container_scan_date=%s WHERE
+                namespace=%s AND container=%s AND init_container=%s ;
+                """,(True, datetime.now(), p_namespace, p_container, p_initcontainer_txt))
 
 def read_pods():
     v1 = client.CoreV1Api()
@@ -167,26 +258,42 @@ def read_pods():
     with psycopg.connect(pdsn) as conn:
         for pod in pod_list.items:
             for sta in pod.status.container_statuses:
-                check_record(conn,pod.metadata.namespace, sta.name, sta.image, sta.image_id, pod.metadata.name)
-                apprec={"namespace": pod.metadata.namespace, "container": sta.name,
-                        "image": sta.image, "image_id": sta.image_id, "pod": pod.metadata.name}
+                check_record(conn,pod.metadata.namespace, sta.name, False, sta.image, sta.image_id, pod.metadata.name)
+                apprec={"namespace": pod.metadata.namespace, "container": sta.name, "init_container": False, \
+                        "image": sta.image, "image_id_digest": sta.image_id, "pod": pod.metadata.name}
                 pods.append(apprec)
+            if not (pod.status.init_container_statuses is None):
+                for sta in pod.status.init_container_statuses:
+                    check_record(conn,pod.metadata.namespace, sta.name, True, sta.image, sta.image_id, pod.metadata.name)
+                    apprec={"namespace": pod.metadata.namespace, "container": sta.name, "init_container": True, \
+                        "image": sta.image, "image_id_digest": sta.image_id, "pod": pod.metadata.name}
+                    pods.append(apprec)
 
 def loop_psql():
     print("Checking database pods vs. active pods...",flush=True)
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
-        cur.execute("SELECT id, namespace, container, pod, image, image_id FROM containers WHERE k8s_running;")
+        cur.execute("SELECT id, image, image_id_digest FROM images WHERE image_running;")
+        for row in cur:
+            podexists=False
+            for pod in pods:
+                if (pod["image_id_digest"] == row["image_id_digest"]) and (pod["image"] == row["image"]):
+                    podexists=True
+            if not podexists:
+                print("found image " + row["image"] + "/" + row["image_id_digest"] + " in image database not currently running...",flush=True)
+                curupdate = conn.cursor()
+                curupdate.execute("UPDATE images SET image_running=%s WHERE id=%s;",(False, row["id"]))
+        cur.execute("SELECT id, namespace, container, init_container, pod FROM containers WHERE container_running;")
         for row in cur:
             podexists=False
             for pod in pods:
                 if (pod["namespace"] == row["namespace"] and pod["container"] == row["container"] \
-                and pod["image"] == row["image"] and pod["image_id"] == row["image_id"]):
+                and pod["init_container"] == row["init_container"] ):
                     podexists=True
             if not podexists:
-                print("found pod "+ row["pod"] + " in namespace " + row["namespace"] + " in database not currently running...",flush=True)
+                print("found container "+ row["pod"] + " in namespace " + row["namespace"] + " in database not currently running...",flush=True)
                 curupdate = conn.cursor()
-                curupdate.execute("UPDATE containers SET k8s_running=%s WHERE id=%s;",(False, row["id"]))
+                curupdate.execute("UPDATE containers SET container_running=%s WHERE id=%s;",(False, row["id"]))
 
 def loop_pods():
     try:
@@ -206,8 +313,13 @@ def expire_conts():
     print("Expiring container records last scanned before " + str(expire_compare_date))
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
-        cur.execute("DELETE FROM containers WHERE (NOT k8s_running) AND last_pod_scan_date <= %s;",(expire_compare_date,))
+        cur.execute("DELETE FROM containers WHERE (NOT container_running) AND last_container_scan_date <= %s;",(expire_compare_date,))
         print("Expired " + str(cur.rowcount) + " containers.")
+        cur.execute("""
+            DELETE FROM images WHERE (NOT image_running) AND (last_image_scan_date <= %s) AND (id NOT IN
+                (select imageid from containers where imageid = images.id));
+            """,(expire_compare_date,))
+        print("Expired " + str(cur.rowcount) + " images.")
 
 # main
 

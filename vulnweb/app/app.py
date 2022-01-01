@@ -15,7 +15,7 @@ def get_vulnerabilities():
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
-            SELECT container_id,namespace, container, image, image_id, artifact_name, artifact_version, vuln_id, vuln_severity,
+            SELECT container_id,namespace, container, image, image_id_digest, artifact_name, artifact_version, vuln_id, vuln_severity,
             vuln_datasource, vuln_fix_state, vuln_fix_versions
             FROM container_vulnerabilities;
             """)
@@ -28,7 +28,7 @@ def get_vulnerability_json(container_id):
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
             SELECT namespace, container, image, vulnscan, vulnscan_gen_date
-            FROM containers
+            FROM container_images
             WHERE id=%s ;
             """,(container_id,))
         return cur.fetchone()
@@ -52,7 +52,7 @@ def get_sboms():
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
-            SELECT container_id,namespace, container, image, image_id, artifact_id, artifact_name, artifact_version,
+            SELECT container_id,namespace, container, image, image_id_digest, artifact_id, artifact_name, artifact_version,
             artifact_type, artifact_language, artifact_purl
             FROM container_sbom;
             """)
@@ -65,7 +65,7 @@ def get_sbom_json(container_id):
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
             SELECT namespace, container, image, sbom, sbom_gen_date
-            FROM containers
+            FROM container_images
             WHERE id=%s ;
             """,(container_id,))
         return cur.fetchone()
@@ -89,9 +89,10 @@ def get_containers():
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
-            SELECT id, namespace, container, image, image_id, pod, k8s_running, last_pod_scan_date,
+            SELECT id, namespace, container, image, image_id_digest, pod,
+            container_running, last_container_scan_date,
             sbom_generated, sbom_gen_date, vulnscan_generated, vulnscan_gen_date
-            FROM containers;
+            FROM containers_no_json;
             """)
         for row in cur:
             containers.append(row)
@@ -101,9 +102,10 @@ def get_container(container_id):
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
-            SELECT id, namespace, container, image, image_id, pod, k8s_running, last_pod_scan_date,
+            SELECT id, namespace, container, image, image_id_digest, pod,
+            container_running, last_container_scan_date,
             sbom_generated, sbom_gen_date, sbom, vulnscan_generated, vulnscan_gen_date, vulnscan
-            FROM containers
+            FROM container_images
             WHERE id = %s;
             """,(container_id,))
         for row in cur:
@@ -114,24 +116,22 @@ def get_ignorelist():
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
-            SELECT id as ignore_id, vuln_id, artifact_name, artifact_version, namespace, container, image, image_id
+            SELECT id as ignore_id, vuln_id, artifact_name, artifact_version, namespace, container, image, image_id_digest
             FROM vuln_ignorelist;
             """)
         for row in cur:
             ignorelist.append(row)
     return ignorelist
 
-def check_add_ignorelist(vuln_id,artifact_name,artifact_version,namespace,container,image,image_id):
+def check_add_ignorelist(vuln_id,artifact_name,artifact_version,namespace,container,image,image_id_digest):
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
             INSERT INTO vuln_ignorelist (vuln_id, artifact_name, artifact_version, namespace,
-            container, image, image_id)
+            container, image, image_id_digest)
             VALUES (%s,%s,%s,%s,%s,%s,%s);
-            """,(vuln_id,artifact_name,artifact_version,namespace,container,image,image_id))
+            """,(vuln_id,artifact_name,artifact_version,namespace,container,image,image_id_digest))
         success=bool(cur.rowcount)
-        if success:
-            rebuild_vulnerabilities()
         return bool(cur.rowcount)
 
 def check_del_ignorelist(ignore_id):
@@ -143,11 +143,14 @@ def check_del_ignorelist(ignore_id):
             """,(ignore_id,))
         return bool(cur.rowcount)
 
-def rebuild_vulnerabilities():
-    with psycopg.connect(pdsn) as conn:
-        cur = conn.cursor(row_factory=dict_row)
-        cur.execute("REFRESH MATERIALIZED VIEW container_vulnerabilities;")
-        return bool(cur.rowcount)
+#def rebuild_vulnerabilities():
+#    print("Ignore list changed, regenerating view")
+#    with psycopg.connect(pdsn) as conn:
+#        cur = conn.cursor()
+#        cur.execute("REFRESH MATERIALIZED VIEW container_vulnerabilities;")
+#        conn.commit()
+#        print("result was "+ str(bool(cur.rowcount)))
+#    return bool(cur.rowcount)
 
 @app.route('/api/vulnerabilities',methods=['GET'])
 def api_vulnerabilities():
@@ -202,7 +205,7 @@ def api_ignorelist():
 def api_addignorelist():
     fm=request.form
     added=check_add_ignorelist(fm['vuln_id'],fm['artifact_name'],fm['artifact_version'],fm['namespace'] \
-        ,fm['container'],fm['image'],fm['image_id'])
+        ,fm['container'],fm['image'],fm['image_id_digest'])
     if added:
         formmessage="Successfully added, refreshing now..."
     else:
@@ -213,16 +216,11 @@ def api_addignorelist():
 def api_delignorelist():
     dellist=request.get_json()
     success=True
-    deletedAny = False
     if len(dellist) > 0:
         for delitem in dellist:
             delitemsuccess=check_del_ignorelist(delitem)
-            if delitemsuccess:
-                deletedAny=True
-            else:
+            if not delitemsuccess:
                 success = False
-    if deletedAny:
-        rebuild_vulnerabilities()
     if success:
         formmessage="Successfully deleted Ignore List, refreshing now..."
     else:
@@ -294,4 +292,3 @@ if (__name__ == '__main__'):
     app.run(host='0.0.0.0', port='80',debug=True)
 
 sys.exit(0)
-# TODO : archive old records???

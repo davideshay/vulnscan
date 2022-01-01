@@ -37,11 +37,11 @@ xmlhttp.onload = function() {
   document.getElementById("cid").innerHTML = cobj.id;
   document.getElementById("cname").innerHTML = cobj.container;
   document.getElementById("namespace").innerHTML = cobj.namespace;
-  document.getElementById("image").innerHTML = cobj.image;
-  document.getElementById("image_id").innerHTML = cobj.image_id;
+  document.getElementById("image").innerHTML = ellipsisTooltip(cobj.image,35);
+  document.getElementById("image_id_digest").innerHTML = ellipsisTooltip(cobj.image_id_digest,35);
   document.getElementById("pod").innerHTML = cobj.pod;
-  document.getElementById("k8s_running").innerHTML = cobj.k8s_running;
-  document.getElementById("last_pod_scan_date").innerHTML = cobj.last_pod_scan_date;
+  document.getElementById("container_running").innerHTML = cobj.container_running;
+  document.getElementById("last_container_scan_date").innerHTML = cobj.last_container_scan_date;
   document.getElementById("sbom_generated").innerHTML = cobj.sbom_generated;
   document.getElementById("sbom_gen_date").innerHTML = cobj.sbom_gen_date;
   document.getElementById("vulnscan_generated").innerHTML = cobj.vulnscan_generated;
@@ -128,7 +128,7 @@ $(document).ready(function() {
                   trigrow.namespace = $('#namespace').text();
                   trigrow.container = $('#cname').text();
                   trigrow.image = $('#image').text();
-                  trigrow.image_id = $('#image_id').text();
+                  trigrow.image_id_digest = $('#image_id_digest').text();
                   vuln_ignore_prompt(key,trigrow);
                 },
                 items: {
@@ -169,16 +169,16 @@ $(document).ready(function() {
         <td><strong>Image</strong></td>
         <td id=image></td>
         <td><strong>Image ID</strong></td>
-        <td id=image_id></td>
+        <td id=image_id_digest></td>
         <td></td>
       </tr>
       <tr>
         <td><strong>Pod</strong></td>
         <td id=pod></td>
         <td><strong>Running</strong></td>
-        <td id=k8s_running></td>
+        <td id=container_running></td>
         <td><strong>Cluster Date</strong></td>
-        <td id=last_pod_scan_date></td>
+        <td id=last_container_scan_date></td>
       </tr>
       <tr>
         <td><strong>SBOM Exists</strong></td>

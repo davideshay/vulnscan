@@ -10,7 +10,7 @@ function vuln_ignore_prompt(key, row) {
         $('#modal-namespace-option').text(row.namespace);
         $('#modal-container-option').text(row.container);
         $('#modal-image-option').text(row.image);
-        $('#modal-image_id-option').text(row.image_id);
+        $('#modal-image_id-option').text(row.image_id_digest);
         $('#modalform').modal('show');
       },
       error: function(jqXHR, textStatus, errorThrown) {

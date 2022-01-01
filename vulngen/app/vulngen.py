@@ -12,15 +12,15 @@ from psycopg.types.json import Json
 
 
 def loop_db():
-    print("Generating vulnerability data for containers...",flush=True)
+    print("Generating vulnerability data for images...",flush=True)
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         if refresh_all:
-            print("Refreshing data on ALL containers", flush=True)
-            cur.execute("SELECT id, namespace, container, image, image_id, sbom FROM containers;")
+            print("Refreshing data on ALL images", flush=True)
+            cur.execute("SELECT id, image, image_id_digest, sbom FROM images;")
         else:
-            print("Refreshing data on running containers without vulnerability data", flush=True)
-            cur.execute("SELECT id, namespace, container, image, image_id, sbom FROM containers WHERE k8s_running AND NOT vulnscan_generated;")
+            print("Refreshing data on running images without vulnerability data", flush=True)
+            cur.execute("SELECT id, image, image_id_digest, sbom FROM images WHERE image_running AND NOT vulnscan_generated;")
         curupdate = conn.cursor()
         for row in cur:
             print(row["image"]+" needs vulnerability scan generated... creating")
@@ -36,7 +36,7 @@ def loop_db():
             if len(vulngenjsontxt) > 0:
                 vulngenjson=json.loads(vulngenjsontxt)
                 print("Scan on " + row["image"] + " completed. Uploading to DB...")
-                curupdate.execute("UPDATE containers SET vulnscan=%s,vulnscan_generated=%s,vulnscan_gen_date=%s WHERE id=%s;", \
+                curupdate.execute("UPDATE images SET vulnscan=%s,vulnscan_generated=%s,vulnscan_gen_date=%s WHERE id=%s;", \
                     (Json(vulngenjson),True,datetime.now(),row["id"]))
                 conn.commit()
         print("Generating Materialized view for vulnerabilities...", flush=True)

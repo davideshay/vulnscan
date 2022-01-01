@@ -24,47 +24,12 @@ span.ellipsis:after{
   width: 200px;
 }
 
-
-
-
 </style>
 <script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
 <script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.js"></script>
 <script type="text/javascript" charset-"utf8" src=" {{ url_for('static', filename='jquery.dataTables.yadcf.js') }}"></script>
+<script type="text/javascript" charset-"utf8" src=" {{ url_for('static', filename='datatable-ellipsis.js') }}"></script>
 
-<script>
-
-  jQuery.fn.dataTable.render.ellipsis = function ( cutoff ) {
-    var esc = function ( t ) {
-        return t
-            .replace( /&/g, '&amp;' )
-            .replace( /</g, '&lt;' )
-            .replace( />/g, '&gt;' )
-            .replace( /"/g, '&quot;' );
-    };
-  	return function ( d, type, row ) {
-  		// Order, search and type get the original data
-
-  		if ( type !== 'display' ) {
-  			return d;
-  		}
-
-  		if ( typeof d !== 'number' && typeof d !== 'string' ) {
-  			return d;
-  		}
-
-  		d = d.toString(); // cast numbers
-
-  		if ( d.length <= cutoff ) {
-  			return d;
-  		}
-
-      return '<span class="ellipsis" title="' + esc(d) + '">'+d.substr(0,cutoff)+'</span><span class=\"no-show\">' + d.substr(cutoff)+'</span>';
-
-  	};
-  };
-
-</script>
 <script type="text/javascript" language="javascript" class="init">
 
 $(document).ready(function() {
@@ -76,10 +41,10 @@ $(document).ready(function() {
             { "data": "namespace" },
             { "data": "container" },
             { "data": "image"},
-            { "data": "image_id" },
+            { "data": "image_id_digest" },
             { "data": "pod" },
-            { "data": "k8s_running" },
-            { "data": "last_pod_scan_date" },
+            { "data": "container_running" },
+            { "data": "last_container_scan_date" },
             { "data": "sbom_generated" },
             { "data": "sbom_gen_date" },
             { "data": "vulnscan_generated" },

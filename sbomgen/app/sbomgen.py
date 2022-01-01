@@ -13,15 +13,18 @@ def loop_db():
     print("Generating SBOMS for containers running and not yet generated...",flush=True)
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
-        cur.execute("SELECT id, namespace, container, image, image_id FROM containers WHERE k8s_running AND NOT sbom_generated;")
+        cur.execute("""
+            SELECT id, image, image_id_digest
+            FROM images WHERE image_running AND NOT sbom_generated;
+            """)
         curupdate = conn.cursor()
         for row in cur:
-            print(row["image"]+" needs SBOM generated... creating")
-            cmdtoexec = ['syft', '-q', row["image_id"], '-o', 'json']
+            print(row["image_id_digest"]+" needs SBOM generated... creating")
+            cmdtoexec = ['syft', '-q', row["image_id_digest"], '-o', 'json']
             sbomfile = subprocess.run(cmdtoexec, capture_output=True)
             sbomjsontxt = sbomfile.stdout.decode()
             if sbomfile.returncode != 0:
-                print("Error occurred generating SBOM by image_id "+ row["image_id"] + " ret code is " + str(sbomfile.returncode),flush=True)
+                print("Error occurred generating SBOM by image_id "+ row["image_id_digest"] + " ret code is " + str(sbomfile.returncode),flush=True)
                 print("Trying by image name " + row["image"] + " instead of ID",flush=True)
                 cmdtoexec = ['syft', '-q', row["image"], '-o', 'json']
                 sbomfile2 = subprocess.run(cmdtoexec, capture_output=True)
@@ -31,7 +34,7 @@ def loop_db():
             if len(sbomjsontxt) > 0:
                 sbomjson = json.loads(sbomjsontxt)
                 print("Generated a complete SBOM for image " + row["image"] + " ... about to load ...",flush=True)
-                curupdate.execute("UPDATE containers SET sbom=%s,sbom_generated=%s,sbom_gen_date=%s WHERE id=%s;",(Json(sbomjson),True,datetime.now(),row["id"]))
+                curupdate.execute("UPDATE images SET sbom=%s,sbom_generated=%s,sbom_gen_date=%s WHERE id=%s;",(Json(sbomjson),True,datetime.now(),row["id"]))
                 conn.commit()
             else:
                 print("ERROR: No SBOM image generated for image " + row["image"],flush=True)
