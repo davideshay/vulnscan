@@ -22,7 +22,8 @@ RUN set -x \
     && cd /tmp/syftdown \
     && tar -zxf /tmp/syftdown/syft.tar.gz \
     && mv /tmp/syftdown/syft /usr/local/bin \
-    && apt-get purge -y --auto-remove curl jq
+    && apt-get purge -y --auto-remove curl jq \
+    && rm -fR /tmp/syftdown
 
 RUN set -x \
       && apt-get update \

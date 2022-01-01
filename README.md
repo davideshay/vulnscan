@@ -1,6 +1,25 @@
 # Vulnscan Suite
 Vulnscan is a suite of reporting and analysis tools built on top of anchore's syft utility (to create software bills of material) and grype utility (to scan those SBOMs for vulnerabilities).  This suite is designed to be run on a kubernetes cluster, and scan all running containers. Once scanned and the vulnerability list has been generated (and stored in a local postgres database), a web UI is available to report on your containers, SBOMs and scanned vulnerabilities.  In addition, you can create an "ignore list" at any desired level to ignore false positives from grype and/or ignore vulnerabilities which you may have resolved in other ways or aren't otherwise applicable.
 
+## Web UI Sample
+
+The UI has a few tabs at the top to access a list of containers/images, a list of vulnerabilities, and a list of Software BOMs:
+
+![](https://raw.githubusercontent.com/davideshay/vulnscan/main/docs/vulnscan-container.png)
+
+The vulnerability list allows you to filter at any desired level across the cluster or by severity, etc:
+
+![](https://raw.githubusercontent.com/davideshay/vulnscan/main/docs/vulnscan-vulns.png)
+
+The SBOM list is similar, with details of every software component running in your landscape:
+
+![](https://raw.githubusercontent.com/davideshay/vulnscan/main/docs/vulnscan-sbom.png)
+
+Clicking on a container provides a detailed view, including both SBOMs and Vulnerabilities for the selected image:
+
+![](https://raw.githubusercontent.com/davideshay/vulnscan/main/docs/vulnscan-detail.png)
+
+
 ## Components of Vulnscan
 There are 4 main components to the suite:
 
