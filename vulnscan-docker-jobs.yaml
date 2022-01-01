@@ -23,8 +23,6 @@ data:
                app: vulnscan-podreader
          spec:
            restartPolicy: OnFailure
-           nodeSelector:
-             kubernetes.io/arch: "amd64"
            serviceAccountName: vulnscan-serviceaccount
            containers:
            - name: podreader
