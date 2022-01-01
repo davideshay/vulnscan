@@ -114,8 +114,6 @@ data:
                app: vulnscan-podreader
          spec:
            restartPolicy: OnFailure
-           nodeSelector:
-             kubernetes.io/arch: "amd64"
            serviceAccountName: vulnscan-serviceaccount
            containers:
            - name: podreader
@@ -157,8 +155,6 @@ data:
                app: vulnscan-sbomgen
          spec:
            restartPolicy: OnFailure
-           nodeSelector:
-             kubernetes.io/arch: "amd64"
            serviceAccountName: vulnscan-serviceaccount
            containers:
            - name: sbomgen
@@ -201,8 +197,6 @@ data:
                app: vulnscan-vulngen
          spec:
            restartPolicy: OnFailure
-           nodeSelector:
-             kubernetes.io/arch: "amd64"
            serviceAccountName: vulnscan-serviceaccount
            containers:
            - name: vulngen
@@ -243,7 +237,6 @@ A few comments on the batch job parameters included here:
 * **Vulngen** takes one additional parameter:
 	* REFRESH_ALL - set to "true" to have **Vulngen** refresh the vulnerability for all pods currently active in the cluster.  If "false", will only scan for vulnerabilities those pods which haven't yet been scanned.
 * **Sbomgen** may need high memory requirements if you have very large images in your cluster. Images that are nearly 1GB may take a substantial amount of memory to generate the SBOM. I had seen nearly 10GB of memory usage at some points. You may want to set this to a lower limit and assess as needed. **Vulngen** has lower resource requirements, but can also consume significant memory when processing those same SBOMs. One of the reasons this whole process was split into 3 was to allow jobs to run at the right place, resourcewise in the cluster.
-* Right now all the jobs are set to only be run on platform amd64 nodes, since I was not able to get the psycopg3 driver running on arm64. This should be able to be fixed later.
  
 ### JobRunner deployment
 
@@ -263,8 +256,6 @@ spec:
            app: vulnscan-jobrunner
      spec:
        restartPolicy: Never
-       nodeSelector:
-         kubernetes.io/arch: "amd64"
        volumes:
        - name: vulnscan-jobs-vol
          configMap:
@@ -313,8 +304,6 @@ spec:
         labels:
            app: vulnscan-vulnweb
      spec:
-       nodeSelector:
-         kubernetes.io/arch: "amd64"
        serviceAccountName: vulnscan-serviceaccount
        containers:
        - name: vulnsrv
