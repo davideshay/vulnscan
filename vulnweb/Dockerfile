@@ -8,4 +8,4 @@ RUN pip install -r requirements.txt
 
 COPY app/ /app/
 
-CMD [ "python3", "/app/vulnsrv.py"]
+CMD [ "python", "/app/app.py"]
