@@ -202,17 +202,6 @@ def check_create_table():
                 """)
             conn.commit()
 
-
-
-
-
-
-
-
-
-
-
-
 def check_record(p_conn, p_namespace, p_container, p_initcontainer, p_image, p_image_id_digest, p_pod):
         p_initcontainer_txt=str(p_initcontainer).upper()
         cur = p_conn.cursor(row_factory=dict_row)
@@ -247,10 +236,11 @@ def check_record(p_conn, p_namespace, p_container, p_initcontainer, p_image, p_i
                 VALUES (%s, %s, %s, %s, %s, %s, %s);""",
                 (p_namespace, p_container, p_initcontainer_txt, db_image_id, p_pod, True, datetime.now()))
         else:
+            print("Updating existing record/s for container " + p_container + "...",flush=True)
             cur.execute("""
-                UPDATE containers SET container_running=%s, last_container_scan_date=%s WHERE
+                UPDATE containers SET container_running=%s, last_container_scan_date=%s , imageid=%s WHERE
                 namespace=%s AND container=%s AND init_container=%s ;
-                """,(True, datetime.now(), p_namespace, p_container, p_initcontainer_txt))
+                """,(True, datetime.now(), db_image_id, p_namespace, p_container, p_initcontainer_txt))
 
 def read_pods():
     v1 = client.CoreV1Api()
@@ -321,6 +311,18 @@ def expire_conts():
             """,(expire_compare_date,))
         print("Expired " + str(cur.rowcount) + " images.")
 
+def update_views():
+    with psycopg.connect(pdsn) as conn:
+        cur1 = conn.cursor(row_factory=dict_row)
+        cur1.execute("REFRESH MATERIALIZED VIEW container_sbom;")
+        conn.commit()
+        cur1.close()
+        cur2 = conn.cursor(row_factory=dict_row)
+        cur2.execute("REFRESH MATERIALIZED VIEW container_vulnerabilities;")
+        conn.commit()
+        cur2.close()
+        print("Refreshed materialized views.")
+
 # main
 
 db_host=os.environ.get('DB_HOST')
@@ -344,4 +346,5 @@ check_create_table()
 loop_pods()
 loop_psql()
 expire_conts()
+update_views()
 sys.exit(0)

@@ -4,6 +4,7 @@ db-sealed-secret.yaml
 .pbuild
 __pycache__
 vulnscan-jobs.yaml
+vulnscan-jobs-all.yaml
 deploy-jobrunner.yaml
 deploy-podreader.yaml
 podreader.yaml
