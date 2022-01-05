@@ -5,11 +5,44 @@
 # Results are stored back in database as json field
 #
 import psycopg
-from datetime import datetime
+import datetime
 from psycopg.rows import dict_row
 import os, sys, json, tempfile, subprocess
-from psycopg.types.json import Json
+from psycopg.types.json import Jsonb, set_json_dumps, set_json_loads
+from functools import partial
 
+def check_and_update_vulns(sbom,vulnscan):
+    lookup_dict={}
+    if (vulnscan is not None) and ("matches" in vulnscan):
+        for match in vulnscan["matches"]:
+            if date_key_name not in match:
+                match[date_key_name]=run_vulngen_date
+            lookup_key=(match["vulnerability"]["id"], match["vulnerability"]["severity"], \
+                match["vulnerability"]["dataSource"], match["artifact"]["name"], \
+                match["artifact"]["version"])
+            lookup_dict[lookup_key]=match[date_key_name]
+    sbomfile=tempfile.NamedTemporaryFile(mode='w',delete=False)
+    json.dump(sbom,sbomfile)
+    sbomfilename=sbomfile.name
+    sbomfile.close()
+    cmdtoexec = ['grype', 'sbom:' + sbomfilename,'-o','json']
+    vulngenfile = subprocess.run(cmdtoexec, capture_output=True)
+    vulngenjsontxt = vulngenfile.stdout.decode()
+    if vulngenfile.returncode != 0:
+        print("Error executing grype command, error code: "+str(vulngenfile.returncode),flush=True)
+    if len(vulngenjsontxt) > 0:
+        vulngenjson=json.loads(vulngenjsontxt)
+        for match in vulngenjson["matches"]:
+            lookup_key=(match["vulnerability"]["id"], match["vulnerability"]["severity"], \
+                match["vulnerability"]["dataSource"], match["artifact"]["name"], \
+                match["artifact"]["version"])
+            if lookup_key in lookup_dict:
+                match[date_key_name]=lookup_dict[lookup_key]
+            else:
+                match[date_key_name]=run_vulngen_date
+    else:
+        vulngenjson={}
+    return vulngenjson
 
 def loop_db():
     print("Generating vulnerability data for images...",flush=True)
@@ -17,31 +50,37 @@ def loop_db():
         cur = conn.cursor(row_factory=dict_row)
         if refresh_all:
             print("Refreshing data on ALL images", flush=True)
-            cur.execute("SELECT id, image, image_id_digest, sbom FROM images;")
+            cur.execute("SELECT id FROM images order by image;")
         else:
             print("Refreshing data on running images without vulnerability data", flush=True)
-            cur.execute("SELECT id, image, image_id_digest, sbom FROM images WHERE image_running AND NOT vulnscan_generated;")
+            cur.execute("""
+                SELECT id
+                FROM images
+                WHERE image_running AND NOT vulnscan_generated ORDER BY image;
+                """)
         curupdate = conn.cursor()
+        curread2 = conn.cursor(row_factory=dict_row)
         for row in cur:
-            print(row["image"]+" needs vulnerability scan generated... creating")
-            sbomfile=tempfile.NamedTemporaryFile(mode='w',delete=False)
-            json.dump(row["sbom"],sbomfile)
-            sbomfilename=sbomfile.name
-            sbomfile.close()
-            cmdtoexec = ['grype', 'sbom:' + sbomfilename,'-o','json']
-            vulngenfile = subprocess.run(cmdtoexec, capture_output=True)
-            vulngenjsontxt = vulngenfile.stdout.decode()
-            if vulngenfile.returncode != 0:
-                print("Error executing grype command, error code: "+str(vulngenfile.returncode),flush=True)
-            if len(vulngenjsontxt) > 0:
-                vulngenjson=json.loads(vulngenjsontxt)
-                print("Scan on " + row["image"] + " completed. Uploading to DB...")
+            imageid=row["id"]
+            curread2.execute("""
+                SELECT id, image, sbom, vulnscan from images where id=%s;
+                """,(imageid,))
+            rowread2=curread2.fetchone()
+            print(rowread2["image"]+" needs vulnerability scan generated... creating")
+            if (rowread2["vulnscan"] is not None):
+                vulnjson=check_and_update_vulns(rowread2["sbom"],rowread2["vulnscan"])
+            if (vulnjson is not None) > 0:
+                print("Scan on " + rowread2["image"] + " completed. Uploading to DB...")
                 curupdate.execute("UPDATE images SET vulnscan=%s,vulnscan_generated=%s,vulnscan_gen_date=%s WHERE id=%s;", \
-                    (Json(vulngenjson),True,datetime.now(),row["id"]))
+                    (Jsonb(vulnjson),True,run_vulngen_date,imageid))
                 conn.commit()
         print("Generating Materialized view for vulnerabilities...", flush=True)
         cur.execute("REFRESH MATERIALIZED VIEW container_vulnerabilities;")
         print("Materialized view for vulnerabilities created.", flush=True)
+
+def custom_converter(o):
+    if isinstance(o, datetime.datetime):
+        return o.__str__()
 
 # main
 
@@ -53,6 +92,11 @@ refresh_all_txt=os.environ.get('REFRESH_ALL')
 refresh_all=(refresh_all_txt.upper() in ['1',"TRUE","YES"])
 
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
+
+run_vulngen_date=datetime.datetime.now()
+date_key_name="last_modified_date"
+
+set_json_dumps(partial(json.dumps,default=custom_converter))
 
 loop_db()
 sys.exit(0)
