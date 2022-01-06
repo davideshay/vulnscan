@@ -11,10 +11,25 @@ import os, sys, json, tempfile, subprocess
 from psycopg.types.json import Jsonb, set_json_dumps, set_json_loads
 from functools import partial
 
-def check_and_update_vulns(sbom,vulnscan):
+def check_and_update_vulns(sbom,imageid):
+    compare_vulnscan={}
+    with psycopg.connect(pdsn) as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute(""" SELECT id, vulnscan FROM images
+            WHERE image=%s AND vulnscan_gen_date<%s AND vulnscan is not null
+            ORDER BY vulnscan_gen_date desc; """,(imageid,run_vulngen_date))
+        compare_read=cur.fetchone()
+        old_similar_exists=bool(cur.rowcount)
+        if old_similar_exists:
+            compare_vulnscan=compare_read["vulnscan"]
+        else:
+            cur.execute(""" SELECT id, vulnscan FROM images
+                WHERE id=%s""",(imageid,))
+            compare_read=cur.fetchone()
+            compare_vulnscan=compare_read["vulnscan"]
     lookup_dict={}
-    if (vulnscan is not None) and ("matches" in vulnscan):
-        for match in vulnscan["matches"]:
+    if (compare_vulnscan is not None) and ("matches" in compare_vulnscan):
+        for match in compare_vulnscan["matches"]:
             if date_key_name not in match:
                 match[date_key_name]=run_vulngen_date
             lookup_key=(match["vulnerability"]["id"], match["vulnerability"]["severity"], \
@@ -50,7 +65,7 @@ def loop_db():
         cur = conn.cursor(row_factory=dict_row)
         if refresh_all:
             print("Refreshing data on ALL images", flush=True)
-            cur.execute("SELECT id FROM images order by image;")
+            cur.execute("SELECT id FROM images order by image, vulnscan_gen_date;")
         else:
             print("Refreshing data on running images without vulnerability data", flush=True)
             cur.execute("""
@@ -63,12 +78,11 @@ def loop_db():
         for row in cur:
             imageid=row["id"]
             curread2.execute("""
-                SELECT id, image, sbom, vulnscan from images where id=%s;
+                SELECT id, image, sbom from images where id=%s;
                 """,(imageid,))
             rowread2=curread2.fetchone()
             print(rowread2["image"]+" needs vulnerability scan generated... creating")
-            if (rowread2["vulnscan"] is not None):
-                vulnjson=check_and_update_vulns(rowread2["sbom"],rowread2["vulnscan"])
+            vulnjson=check_and_update_vulns(rowread2["sbom"],rowread2["image"])
             if (vulnjson is not None) > 0:
                 print("Scan on " + rowread2["image"] + " completed. Uploading to DB...")
                 curupdate.execute("UPDATE images SET vulnscan=%s,vulnscan_generated=%s,vulnscan_gen_date=%s WHERE id=%s;", \

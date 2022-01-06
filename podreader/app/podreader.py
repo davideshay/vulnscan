@@ -93,10 +93,11 @@ def check_create_table():
             m.artifact->>'version' as artifact_version, m.vulnerability->>'description' as vuln_description,
             m.vulnerability->>'dataSource' as vuln_datasource,
             m.vulnerability->'fix'->>'state' as vuln_fix_state,
-            m.vulnerability->'fix'->>'versions' as vuln_fix_versions
+            m.vulnerability->'fix'->>'versions' as vuln_fix_versions,
+            m.last_modified_date as vuln_last_modified_date
             from container_images
             left join lateral jsonb_to_recordset(container_images.vulnscan->'matches') as
-            m(artifact json, vulnerability json ) on true
+            m(last_modified_date text, artifact json, vulnerability json ) on true
             order by namespace, container, image, image_id_digest, vuln_id, artifact_name, artifact_version;
             """)
         conn.commit()
@@ -111,71 +112,67 @@ def check_create_table():
             order by namespace, container, image, image_id_digest;
             """)
         conn.commit()
-        cur.execute("select * from pg_catalog.pg_matviews where matviewname=%s",('container_vulnerabilities',))
-        tbl_exists=bool(cur.rowcount)
-        if not tbl_exists:
-            print("Initial run, container_vulnerabilities materialized view did not exist, creating")
-            cur.execute("""
-                create materialized view container_vulnerabilities
-                as
-                select cv.container_id, cv.namespace, cv.container, cv.init_container, cv.image, cv.image_id_digest,
-                cv.pod, cv.container_running, cv.last_container_scan_date, cv.sbom_generated, cv.sbom_gen_date,
-                cv.image_running, cv.last_image_scan_date,
-                cv.vulnscan_generated, cv.vulnscan_gen_date,
-                cv.vuln_id, cv.vuln_severity, cv.artifact_name, cv.artifact_version,
-                cv.vuln_description, cv.vuln_datasource, cv.vuln_fix_state, cv.vuln_fix_versions
-                from container_vulnerabilities_base cv
-                left join vuln_ignorelist vi
-                on
-                ( (cv.vuln_id = vi.vuln_id) or (vi.vuln_id = '*') )
-                and
-                ( (cv.artifact_name = vi.artifact_name) or (vi.artifact_name = '*') )
-                and
-                ( (cv.artifact_version = vi.artifact_version) or (vi.artifact_version = '*') )
-                and
-                ( (cv."namespace" = vi."namespace") or (vi."namespace" = '*') )
-                and
-                ( (cv.container = vi.container) or (vi.container = '*') )
-                and
-                ( (cv.image = vi.image) or (vi.image = '*') )
-                and
-                ( (cv.image_id_digest = vi.image_id_digest) or (vi.image_id_digest = '*') )
-                where vi.vuln_id is null;
-                """)
-            conn.commit()
-        cur.execute("select * from pg_catalog.pg_matviews where matviewname=%s",('container_sbom',))
-        tbl_exists=bool(cur.rowcount)
-        if not tbl_exists:
-            print("Initial run, materialized view for container_sbom does not exist, creating")
-            cur.execute("""
-                CREATE MATERIALIZED VIEW container_sbom
-                AS
-                SELECT c.id AS container_id,
-                    c.namespace,
-                    c.container,
-                    c.init_container,
-                    c.image,
-                    c.image_id_digest,
-                    c.pod,
-                    c.image_running,
-                    c.last_image_scan_date,
-                    c.container_running,
-                    c.last_container_scan_date,
-                    c.sbom_generated,
-                    c.sbom_gen_date,
-                    c.vulnscan_generated,
-                    c.vulnscan_gen_date,
-                    s.id as artifact_id,
-                    s.name  as artifact_name,
-                    s.version  as artifact_version,
-                    s.type as artifact_type,
-                    s.language as artifact_language,
-                    s.purl as artifact_purl
-                    FROM container_images c
-                    LEFT JOIN LATERAL jsonb_to_recordset(c.sbom -> 'artifacts'::text) as s(id text, name text, version text, type text, language text, purl text) ON true
-                    ORDER BY c.namespace, c.container, c.image, c.image_id_digest, s.name;
-                """)
-            conn.commit()
+        cur.execute("DROP MATERIALIZED VIEW IF EXISTS container_vulnerabilities");
+        print("Dropping and re-creating materialized view container_vulnerabilities...",flush=True)
+        cur.execute("""
+            create materialized view container_vulnerabilities
+            as
+            select cv.container_id, cv.namespace, cv.container, cv.init_container, cv.image, cv.image_id_digest,
+            cv.pod, cv.container_running, cv.last_container_scan_date, cv.sbom_generated, cv.sbom_gen_date,
+            cv.image_running, cv.last_image_scan_date,
+            cv.vulnscan_generated, cv.vulnscan_gen_date,
+            cv.vuln_id, cv.vuln_severity, cv.artifact_name, cv.artifact_version, cv.vuln_last_modified_date,
+            cv.vuln_description, cv.vuln_datasource, cv.vuln_fix_state, cv.vuln_fix_versions
+            from container_vulnerabilities_base cv
+            left join vuln_ignorelist vi
+            on
+            ( (cv.vuln_id = vi.vuln_id) or (vi.vuln_id = '*') )
+            and
+            ( (cv.artifact_name = vi.artifact_name) or (vi.artifact_name = '*') )
+            and
+            ( (cv.artifact_version = vi.artifact_version) or (vi.artifact_version = '*') )
+            and
+            ( (cv."namespace" = vi."namespace") or (vi."namespace" = '*') )
+            and
+            ( (cv.container = vi.container) or (vi.container = '*') )
+            and
+            ( (cv.image = vi.image) or (vi.image = '*') )
+            and
+            ( (cv.image_id_digest = vi.image_id_digest) or (vi.image_id_digest = '*') )
+            where vi.vuln_id is null;
+            """)
+        conn.commit()
+        cur.execute("DROP MATERIALIZED VIEW IF EXISTS container_sbom");
+        print("Dropping and re-creating materialized view container_sbom...",flush=True)
+        cur.execute("""
+            CREATE MATERIALIZED VIEW container_sbom
+            AS
+            SELECT c.id AS container_id,
+                c.namespace,
+                c.container,
+                c.init_container,
+                c.image,
+                c.image_id_digest,
+                c.pod,
+                c.image_running,
+                c.last_image_scan_date,
+                c.container_running,
+                c.last_container_scan_date,
+                c.sbom_generated,
+                c.sbom_gen_date,
+                c.vulnscan_generated,
+                c.vulnscan_gen_date,
+                s.id as artifact_id,
+                s.name  as artifact_name,
+                s.version  as artifact_version,
+                s.type as artifact_type,
+                s.language as artifact_language,
+                s.purl as artifact_purl
+                FROM container_images c
+                LEFT JOIN LATERAL jsonb_to_recordset(c.sbom -> 'artifacts'::text) as s(id text, name text, version text, type text, language text, purl text) ON true
+                ORDER BY c.namespace, c.container, c.image, c.image_id_digest, s.name;
+            """)
+        conn.commit()
         cur.execute("""
             CREATE OR REPLACE FUNCTION refresh_vuln_view()
                 RETURNS TRIGGER
