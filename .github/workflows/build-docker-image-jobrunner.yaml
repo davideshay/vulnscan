@@ -1,6 +1,8 @@
 name: build-publish-docker-jobrunner
 on:
   push:
+    branches:
+      - main
     paths:
       - 'jobrunner/**'
 defaults:

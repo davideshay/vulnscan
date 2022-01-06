@@ -1,6 +1,8 @@
 name: build-publish-docker-sbomgen
 on:
   push:
+    branches:
+      - main
     paths:
       - 'sbomgen/**'
 defaults:

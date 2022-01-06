@@ -1,6 +1,8 @@
 name: build-publish-docker-vulnweb
 on:
   push:
+    branches:
+      - main
     paths:
       - 'vulnweb/**'
 defaults:

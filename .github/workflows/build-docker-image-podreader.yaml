@@ -1,6 +1,8 @@
 name: build-publish-docker-podreader
 on:
   push:
+    branches:
+      - main
     paths:
       - 'podreader/**'
 defaults:
