@@ -11,13 +11,13 @@ import os, sys, json, tempfile, subprocess
 from psycopg.types.json import Jsonb, set_json_dumps, set_json_loads
 from functools import partial
 
-def check_and_update_vulns(sbom,imageid):
+def check_and_update_vulns(sbom,imageid,imagename):
     compare_vulnscan={}
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute(""" SELECT id, vulnscan FROM images
             WHERE image=%s AND vulnscan_gen_date<%s AND vulnscan is not null
-            ORDER BY vulnscan_gen_date desc; """,(imageid,run_vulngen_date))
+            ORDER BY vulnscan_gen_date desc; """,(imagename,run_vulngen_date))
         compare_read=cur.fetchone()
         old_similar_exists=bool(cur.rowcount)
         if old_similar_exists:
@@ -82,7 +82,7 @@ def loop_db():
                 """,(imageid,))
             rowread2=curread2.fetchone()
             print(rowread2["image"]+" needs vulnerability scan generated... creating")
-            vulnjson=check_and_update_vulns(rowread2["sbom"],rowread2["image"])
+            vulnjson=check_and_update_vulns(rowread2["sbom"],rowread2["id"],rowread2["image"])
             if (vulnjson is not None) > 0:
                 print("Scan on " + rowread2["image"] + " completed. Uploading to DB...")
                 curupdate.execute("UPDATE images SET vulnscan=%s,vulnscan_generated=%s,vulnscan_gen_date=%s WHERE id=%s;", \
