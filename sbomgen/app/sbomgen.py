@@ -15,7 +15,7 @@ def loop_db():
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
             SELECT id, image, image_id_digest
-            FROM images WHERE image_running AND NOT sbom_generated;
+            FROM images WHERE NOT sbom_generated;
             """)
         curupdate = conn.cursor()
         for row in cur:
