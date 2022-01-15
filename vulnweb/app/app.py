@@ -16,7 +16,7 @@ def get_vulnerabilities():
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
             SELECT container_id,namespace, container, image, image_id_digest, artifact_name, artifact_version, vuln_id, vuln_severity,
-            vuln_datasource, vuln_fix_state, vuln_fix_versions
+            vuln_datasource, vuln_fix_state, vuln_fix_versions, vuln_last_modified_date
             FROM container_vulnerabilities;
             """)
         for row in cur:
@@ -39,7 +39,7 @@ def get_container_vulnerabilities(container_id):
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("""
             SELECT artifact_name, artifact_version, vuln_id, vuln_severity,
-            vuln_datasource, vuln_fix_state, vuln_fix_versions
+            vuln_datasource, vuln_fix_state, vuln_fix_versions, vuln_last_modified_date
             FROM container_vulnerabilities
             WHERE container_id=%s ;
             """,(container_id,))

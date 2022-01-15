@@ -88,6 +88,7 @@ $(document).ready(function() {
             { "data": "vuln_datasource" },
             { "data": "vuln_fix_state" },
             { "data": "vuln_fix_versions" },
+            { "data": "vuln_last_modified_date"}
         ],
         "pageLength": 10,
         "scrollX": true,
@@ -98,12 +99,13 @@ $(document).ready(function() {
               return '<a href="'+row.vuln_datasource+'" target="popup" onclick="window.open(\''+row.vuln_datasource+'\',\'popup\',\'width=800,height=800\'); return false;">'+data+'</a>';}
               else { return '';} }
             },
-          { "visible": false, "targets": [4]},
+          { "visible": false, "targets": [4,7]},
         ]
     } );
 
     yadcf.init(vTable, [
       {column_number: 0, filter_type: 'select'},
+      {column_number: 2, filter_type: 'select'},
       {column_number: 3, filter_type: 'select'},
       {column_number: 4, filter_type: 'select'},
     ],

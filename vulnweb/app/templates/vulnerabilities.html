@@ -15,7 +15,7 @@
     width: 100px;
   }
   #yadcf-filter--data-2 {
-    width: 125px;
+    width: 100px;
   }
   #yadcf-filter--data-3 {
     width: 200px;
@@ -54,11 +54,40 @@
 
 <script type="text/javascript" language="javascript" class="init">
 
+var compdate=new Date()
+
+var toolbarhtml=`
+  <label for="time-range-value">Vulnerabilities changed since:</label>
+  <select class="time-range-value" name="time-range-value" id="time-range-value">
+    <option value="ALL">ALL</option>
+  </select>
+  <select class="time-range-units" name="time-range-units" id="time-range-units">
+    <option value="days">days</option>
+    <option value="hours">hours</option>
+  </select>
+`;
+
+$.fn.dataTable.ext.search.push(
+    function( settings, data, dataIndex ) {
+        if ( $('#time-range-value').val() == "ALL")
+         {
+           return true
+         }
+        var rowmoddate = new Date(data[12])
+        if (rowmoddate >= compdate) {
+          return true
+        }
+        else {
+          return false
+        }
+    }
+);
+
 $(document).ready(function() {
     vTable = $('#data').DataTable( {
         "ajax": { "url" : "/api/vulnerabilities",
                   "dataSrc" : "data"},
-        dom: 'Blfrtip',
+        dom: 'Bl<"toolbar">frtip',
         "buttons": [
             'excel'
         ],
@@ -74,7 +103,8 @@ $(document).ready(function() {
             { "data": "vuln_severity" },
             { "data": "vuln_datasource" },
             { "data": "vuln_fix_state" },
-            { "data": "vuln_fix_versions" }
+            { "data": "vuln_fix_versions" },
+            { "data": "vuln_last_modified_date"}
         ],
         "pageLength": 15,
         "scrollX": true,
@@ -86,11 +116,11 @@ $(document).ready(function() {
               return '<a href="'+row.vuln_datasource+'" target="popup" onclick="window.open(\''+row.vuln_datasource+'\',\'popup\',\'width=800,height=800\'); return false;">'+data+'</a>';}
               else { return '';} }
             },
-          { visible: false, targets: [0,4,9]},
+          { visible: false, targets: [0,4,9,12]},
           { "render": $.fn.dataTable.render.ellipsis(15), "targets": 1},
           { "width": "100px", "targets": 1},
-          { "render": $.fn.dataTable.render.ellipsis(20,true,"'/container?id='+row.container_id"), "targets": 2},
-          { "width": "125px", "targets": 2},
+          { "render": $.fn.dataTable.render.ellipsis(15,true,"'/container?id='+row.container_id"), "targets": 2},
+          { "width": "100px", "targets": 2},
           { "render": $.fn.dataTable.render.ellipsis(35), "targets": 3},
           { "width": "200px", "targets": 3},
           { "render": $.fn.dataTable.render.ellipsis(25), "targets": 5},
@@ -143,6 +173,29 @@ $(document).ready(function() {
       cumulative_filtering: true
     });
 
+    $("div.toolbar").html(toolbarhtml);
+
+    $(function(){
+        var $select = $(".time-range-value");
+        for (i=1;i<=24;i++){
+            $select.append($('<option></option>').val(i).html(i))
+        }
+    });
+
+    $('#time-range-value, #time-range-units').bind("change keyup", function() {
+        var rangeval = parseInt( $('#time-range-value').val() );
+        var rangeunits = $('#time-range-units').val()
+        compdate=new Date()
+        if (rangeunits == "days") {
+          compdate.setDate(compdate.getDate()-rangeval)
+        }
+        else {
+          compdate_ms=compdate.getTime()
+          compdate=new Date(compdate_ms-(rangeval*60*60*1000))
+        }
+        vTable.draw();
+    } );
+
 
 } );
 
@@ -158,6 +211,7 @@ $(document).ready(function() {
     <a href="/ignorelist">Ignore List</a>
   </div>
 
+  <div class=container>
   <table id="data" class="display">
     <thead>
         <tr>
@@ -175,7 +229,8 @@ $(document).ready(function() {
             <th>Fixed Versions</th>
         </tr>
     </thead>
+  </table>
+  </div>
 
-</table>
 </body>
 </html>
