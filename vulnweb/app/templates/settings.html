@@ -1,0 +1,96 @@
+<html>
+<head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='vulnscan_global.css') }}">
+
+<script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+
+<script type="text/javascript" language="javascript" class="init">
+
+
+$(document).on("click","#settingsform-submit", function() {
+    $.ajax({
+      url: $(this).attr('href'),
+      success: function(newHTML, textStatus, jqXHR) {
+        console.log(newHTML)
+        $('#settingsform-message')[0].innerHTML = newHTML
+      },
+      error: function(jqXHR, textStatus, errorThrown) {
+        alert("Error processing add request");
+      },
+      data: $('#settings-form').serialize(),
+      method: "POST"
+    });
+    return false;
+  }
+);
+
+</script>
+<title>Settings</title>
+</head>
+<body>
+
+  <div class="navbar">
+    <a href="/containers">Containers</a>
+    <a href="/vulnerabilities">Vulnerabilities</a>
+    <a href="/sboms">Software BOMs</a>
+    <a href="/ignorelist">Ignore List</a>
+    <a class="current" href="/settings">Settings</a>
+  </div>
+
+  <div class=container>
+
+    <h1>Global Settings and Info for Vulnerablity Scanner</h1>
+
+    <form class="settings-form" id="settings-form">
+    <table>
+      <tr>
+      <td><label for="match_image_without_tags">Match Image without Tags:</label></td>
+      <td>
+        <input type="checkbox" id="match_image_without_tags" name="match_image_without_tags" value="1" {{'checked="checked"' if SYSPREFS.match_image_without_tags else ""}}>
+      </td></tr>
+      <tr>
+      <td></td>
+      <td width="400px">
+        <p>This option affects delta processing during the vulnerability scan. During this scan,
+           for every image, for instance docker.io/elasticsearch:7.16.3, a reference scan is used to
+           determine if new vulnerabilities have been found. When checked, the scanner will consider docker.io/elasticsearch:7.16.2
+           to be the reference image for 7.16.3, and only report new or resolved differences different from 7.16.2.
+           When unchecked, 7.16.3 is considered a new image and all vulnerabilities for it will be reported as new.
+      </td></tr>
+    </table>
+    <h3>System Reference Information</h3>
+    <table>
+      <tr>
+      <td>Database Schema Version</td>
+      <td>{{SYSPREFS.schema_ver}}</td>
+      </tr>
+      <tr>
+      <td>Last Pod/Image Scan Date</td>
+      <td>{{SYSPREFS.last_podreader_run_date}}</td>
+      </tr>
+      <tr>
+      <td>Last Software BOM Scan Date</td>
+      <td>{{SYSPREFS.last_sbomgen_run_date}}</td>
+      </tr>
+      <td>Last Vulnerability Scan Date</td>
+      <td>{{SYSPREFS.last_vulngen_run_date}}</td>
+      </tr>
+    </table>
+    <div style="text-align:center">
+    <p><a href='/api/settings' class="btn" id="settingsform-submit">Update Settings</a></p>
+    </div>
+  </form>
+  <p id="settingsform-message"></p>
+  </div>
+  </div>
+
+  <div id="messageform" class=modal>
+    <div class="modal-content">
+      <h2 id="messageform-message"></h2>
+    </div>
+  </div>
+
+
+</body>
+</html>

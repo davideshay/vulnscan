@@ -153,6 +153,34 @@ def check_del_ignorelist(ignore_id):
             """,(ignore_id,))
         return bool(cur.rowcount)
 
+def get_sysprefs():
+    with psycopg.connect(pdsn) as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute(""" SELECT userid, schema_ver, match_image_without_tags,
+                last_podreader_run_date, last_sbomgen_run_date, last_vulngen_run_date
+            FROM sysprefs
+            WHERE userid=%s;""",('system',))
+        if bool(cur.rowcount):
+            sysprefs_row=cur.fetchone()
+            return sysprefs_row
+        else:
+            return {}
+
+def update_settings(settings):
+    with psycopg.connect(pdsn) as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        if ('match_image_without_tags' in settings):
+            match_image_without_tags=True
+        else:
+            match_image_without_tags=False
+        cur.execute(""" UPDATE sysprefs SET match_image_without_tags = %s
+            WHERE userid=%s;""",(match_image_without_tags,'system'))
+        if bool(cur.rowcount):
+            return True
+        else:
+            return False
+
+
 #def rebuild_vulnerabilities():
 #    print("Ignore list changed, regenerating view")
 #    with psycopg.connect(pdsn) as conn:
@@ -241,6 +269,16 @@ def api_delignorelist():
         formmessage="Error deleting record. Retry"
     return render_template('responseform.html',formmessage=formmessage)
 
+@app.route('/api/settings', methods=['POST'])
+def api_settings():
+    fm=request.form
+    updated=update_settings(fm)
+    if updated:
+        formmessage="Settings Updated"
+    else:
+        formmessage="Error updating settings"
+    return formmessage
+
 @app.route('/subform/addignorelist', methods=['GET'])
 def app_subform_ignorelist():
     return render_template('add_ignorelist.html')
@@ -286,6 +324,10 @@ def app_sbom():
         data={}
     return render_template('sbom.html', data=data)
 
+@app.route('/settings/', methods=['GET'])
+def app_settings():
+    sysprefs=get_sysprefs()
+    return render_template('settings.html', SYSPREFS=sysprefs)
 
 @app.route('/', methods=['GET'])
 def app_home():
