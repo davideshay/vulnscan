@@ -11,8 +11,33 @@ from psycopg.rows import dict_row
 import sys, os
 
 def check_create_table():
+    cur_schema=0
+    tgt_schema=1
     with psycopg.connect(pdsn) as conn:
-        cur = conn.cursor()
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("select * from information_schema.tables where table_name=%s",('sysprefs',))
+        tbl_exists=bool(cur.rowcount)
+        if not tbl_exists:
+            print("Initial run, schema table did not exist, creating", flush=True)
+            cur.execute("""
+                CREATE TABLE sysprefs (
+                    userid text NOT NULL PRIMARY KEY,
+                    schema_ver integer not null,
+                    match_image_without_tags boolean not null,
+                    last_podreader_run_date timestamptz null,
+                    last_sbomgen_run_date timestamptz null,
+                    last_vulngen_run_date timestamptz null
+                    )
+                """)
+            cur.execute("""
+                INSERT INTO sysprefs (userid, schema_ver, match_image_without_tags)
+                    VALUES (%s, %s, %s);
+                """,('system',0,True))
+            conn.commit()
+        cur.execute("""SELECT schema_ver, match_image_without_tags
+            FROM sysprefs WHERE userid = %s""",('system',))
+        sysprefs=cur.fetchone()
+        cur_schema=int(sysprefs["schema_ver"])
         cur.execute("select * from information_schema.tables where table_name=%s",('images',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
@@ -63,8 +88,25 @@ def check_create_table():
                 	vuln_id text NOT NULL,
                 	artifact_name text NOT NULL,
                 	artifact_version text NOT NULL,
-                	"namespace" text NOT NULL,
-                	container text NOT NULL,
+                	image text NOT NULL,
+                	image_id_digest text NOT NULL
+                );
+                """)
+        conn.commit()
+        cur.execute("select * from information_schema.tables where table_name=%s",('vulns_resolved',))
+        tbl_exists=bool(cur.rowcount)
+        if not tbl_exists:
+            print("Initial run, vulns_resolved table did not exist, creating", flush=True)
+            cur.execute("""
+                CREATE TABLE vulns_resolved (
+                    id serial PRIMARY KEY,
+                    vuln_resolved_date timestamptz NULL,
+                	vuln_id text NOT NULL,
+                    vuln_severity text NULL,
+                    vuln_datasource text NULL,
+                	artifact_name text NULL,
+                	artifact_version text NULL,
+                    imageid INTEGER NULL,
                 	image text NOT NULL,
                 	image_id_digest text NOT NULL
                 );
@@ -81,6 +123,16 @@ def check_create_table():
             LEFT JOIN images i ON c.imageid = i.id;
             """)
         conn.commit()
+        if cur_schema<1:
+            print(f"Prior version of schema detected: {cur_schema} -- upgrading to target {tgt_schema}.")
+            print(f"Dropping all views, materialized views, and functions. Will be recreated.")
+            cur.execute("DROP TRIGGER on_ignorelist_table_update ON vuln_ignorelist;")
+            cur.execute("DROP FUNCTION IF EXISTS refresh_vuln_view();")
+            cur.execute("DROP MATERIALIZED VIEW IF EXISTS container_sbom;")
+            cur.execute("DROP MATERIALIZED VIEW IF EXISTS container_vulnerabilities;")
+            cur.execute("DROP VIEW IF EXISTS containers_no_json;")
+            cur.execute("DROP VIEW IF EXISTS container_vulnerabilities_base;")
+            conn.commit()
         cur.execute("""
             create or replace view container_vulnerabilities_base
             as
@@ -198,6 +250,8 @@ def check_create_table():
                 EXECUTE PROCEDURE refresh_vuln_view();
                 """)
             conn.commit()
+        if cur_schema != tgt_schema:
+            cur.execute("UPDATE sysprefs SET schema_ver = %s WHERE userid = %s;",(tgt_schema,'system'))
 
 def check_record(p_conn, p_namespace, p_container, p_initcontainer, p_image, p_image_id_digest, p_pod):
         p_initcontainer_txt=str(p_initcontainer).upper()
@@ -210,7 +264,7 @@ def check_record(p_conn, p_namespace, p_container, p_initcontainer, p_image, p_i
                 INSERT INTO images (image, image_id_digest, image_running, last_image_scan_date,
                 sbom_generated, vulnscan_generated )
                 VALUES (%s, %s,%s,%s,%s,%s) RETURNING id;
-                """,(p_image, p_image_id_digest, True, datetime.now(), False, False))
+                """,(p_image, p_image_id_digest, True, podreader_run_date, False, False))
             db_image_id=cur.fetchone()["id"]
         else:
             cur.execute("""
@@ -220,7 +274,7 @@ def check_record(p_conn, p_namespace, p_container, p_initcontainer, p_image, p_i
             cur.execute("""
                 UPDATE images set image_running=%s, last_image_scan_date=%s
                 WHERE id = %s;
-                """,(True, datetime.now(),db_image_id))
+                """,(True, podreader_run_date,db_image_id))
         cur.execute("""
             SELECT * FROM containers WHERE namespace=%s AND container=%s AND init_container=%s;
             """,(p_namespace, p_container, p_initcontainer_txt))
@@ -231,13 +285,13 @@ def check_record(p_conn, p_namespace, p_container, p_initcontainer, p_image, p_i
                 INSERT INTO containers (namespace, container, init_container, imageid, pod,
                     container_running, last_container_scan_date )
                 VALUES (%s, %s, %s, %s, %s, %s, %s);""",
-                (p_namespace, p_container, p_initcontainer_txt, db_image_id, p_pod, True, datetime.now()))
+                (p_namespace, p_container, p_initcontainer_txt, db_image_id, p_pod, True, podreader_run_date))
         else:
             print("Updating existing record/s for container " + p_container + "...",flush=True)
             cur.execute("""
                 UPDATE containers SET container_running=%s, last_container_scan_date=%s , imageid=%s WHERE
                 namespace=%s AND container=%s AND init_container=%s ;
-                """,(True, datetime.now(), db_image_id, p_namespace, p_container, p_initcontainer_txt))
+                """,(True, podreader_run_date, db_image_id, p_namespace, p_container, p_initcontainer_txt))
 
 def read_pods():
     v1 = client.CoreV1Api()
@@ -296,7 +350,7 @@ def expire_conts():
         print("Expire pods not enabled, skipping expiration")
         return
     expire_days_delta = timedelta(days=expire_days)
-    expire_compare_date = datetime.now() - expire_days_delta
+    expire_compare_date = podreader_run_date - expire_days_delta
     print("Expiring container records last scanned before " + str(expire_compare_date))
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
@@ -320,6 +374,11 @@ def update_views():
         cur2.close()
         print("Refreshed materialized views.")
 
+def update_run_date():
+    with psycopg.connect(pdsn) as conn:
+        cur1 = conn.cursor(row_factory=dict_row)
+        cur1.execute("UPDATE sysprefs SET last_podreader_run_date = %s WHERE userid = %s",(podreader_run_date,'system'))
+
 # main
 
 db_host=os.environ.get('DB_HOST')
@@ -335,6 +394,7 @@ else:
     expire_days=5
 
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
+podreader_run_date=datetime.now()
 
 config.load_incluster_config()
 
@@ -344,4 +404,5 @@ loop_pods()
 loop_psql()
 expire_conts()
 update_views()
+update_run_date()
 sys.exit(0)

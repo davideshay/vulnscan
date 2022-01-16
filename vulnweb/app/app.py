@@ -10,15 +10,25 @@ from flask import render_template, Flask, request, redirect
 app = Flask(__name__, static_folder="static")
 
 
-def get_vulnerabilities():
+def get_vulnerabilities(specific_modified_date):
     vulns=[]
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
-        cur.execute("""
-            SELECT container_id,namespace, container, image, image_id_digest, artifact_name, artifact_version, vuln_id, vuln_severity,
-            vuln_datasource, vuln_fix_state, vuln_fix_versions, vuln_last_modified_date
-            FROM container_vulnerabilities;
-            """)
+        if specific_modified_date is None:
+            cur.execute("""
+                SELECT container_id,namespace, container, image, image_id_digest, artifact_name,
+                artifact_version, vuln_id, vuln_severity,
+                vuln_datasource, vuln_fix_state, vuln_fix_versions, vuln_last_modified_date
+                FROM container_vulnerabilities;
+                """)
+        else:
+            cur.execute("""
+                SELECT container_id,namespace, container, image, image_id_digest, artifact_name,
+                artifact_version, vuln_id, vuln_severity,
+                vuln_datasource, vuln_fix_state, vuln_fix_versions, vuln_last_modified_date
+                FROM container_vulnerabilities
+                WHERE vuln_last_modified_date=%s;
+                """,(str(specific_modified_date),))
         for row in cur:
             vulns.append(row)
     return vulns
@@ -154,7 +164,11 @@ def check_del_ignorelist(ignore_id):
 
 @app.route('/api/vulnerabilities',methods=['GET'])
 def api_vulnerabilities():
-    data={"data": get_vulnerabilities()}
+    mod_date_isostr=request.args.get('mod_date_isostr',None)
+    if (mod_date_isostr is None) or (mod_date_isostr == '') :
+        data={"data": get_vulnerabilities(None)}
+    else:
+        data={"data": get_vulnerabilities(datetime.fromisoformat(mod_date_isostr))}
     return data
 
 @app.route('/api/container_vulnerabilities', methods=['GET'])
@@ -238,7 +252,8 @@ def app_ignorelist():
 
 @app.route('/vulnerabilities/', methods=['GET'])
 def app_vulnerabiliites():
-    return render_template('vulnerabilities.html',APP_URL=APP_URL)
+    mod_date_isostr=request.args.get('mod_date_isostr',"")
+    return render_template('vulnerabilities.html',APP_URL=APP_URL,MOD_DATE_ISOSTR=mod_date_isostr)
 
 @app.route('/vulnerability/', methods=['GET'])
 def app_vulnerability():

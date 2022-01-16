@@ -1,1 +1,2 @@
 psycopg[c]>=3.0.7
+apprise>=0.9.6

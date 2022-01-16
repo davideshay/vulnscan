@@ -84,8 +84,12 @@ $.fn.dataTable.ext.search.push(
 );
 
 $(document).ready(function() {
+
+    vulnparams={ mod_date_isostr : "{{MOD_DATE_ISOSTR}}" }
+
     vTable = $('#data').DataTable( {
         "ajax": { "url" : "/api/vulnerabilities",
+                  "data": vulnparams,
                   "dataSrc" : "data"},
         dom: 'Bl<"toolbar">frtip',
         "buttons": [

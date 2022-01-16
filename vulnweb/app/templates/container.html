@@ -99,7 +99,18 @@ $(document).ready(function() {
               return '<a href="'+row.vuln_datasource+'" target="popup" onclick="window.open(\''+row.vuln_datasource+'\',\'popup\',\'width=800,height=800\'); return false;">'+data+'</a>';}
               else { return '';} }
             },
-          { "visible": false, "targets": [4,7]},
+          { "targets": 7,
+              "render": function (data, type, row, meta ) {
+                var rowmoddate=new Date(row.vuln_last_modified_date)
+                mylocale=Intl.DateTimeFormat().resolvedOptions().locale
+                dt_options={year: 'numeric', month: 'numeric', day: 'numeric'}
+                tm_options={hour: 'numeric', minute: 'numeric'}
+                retval=Intl.DateTimeFormat(mylocale,dt_options).format(rowmoddate)
+                retval=retval+" "+Intl.DateTimeFormat(mylocale,tm_options).format(rowmoddate)
+                return retval
+              }
+            },
+          { "visible": false, "targets": [4]},
         ]
     } );
 
@@ -223,6 +234,7 @@ $(document).ready(function() {
       <th>Datasource</th>
       <th>Fixed</th>
       <th>Fix Versions</th>
+      <th>Last Found</th>
     </tr>
   </thead>
 </table>

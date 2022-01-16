@@ -34,13 +34,18 @@ def loop_db():
             if len(sbomjsontxt) > 0:
                 sbomjson = json.loads(sbomjsontxt)
                 print("Generated a complete SBOM for image " + row["image"] + " ... about to load ...",flush=True)
-                curupdate.execute("UPDATE images SET sbom=%s,sbom_generated=%s,sbom_gen_date=%s WHERE id=%s;",(Json(sbomjson),True,datetime.now(),row["id"]))
+                curupdate.execute("UPDATE images SET sbom=%s,sbom_generated=%s,sbom_gen_date=%s WHERE id=%s;",(Json(sbomjson),True,sbomgen_run_date,row["id"]))
                 conn.commit()
             else:
                 print("ERROR: No SBOM image generated for image " + row["image"],flush=True)
         print("Regenerating materialized SBOM view...", flush=True)
         cur.execute("REFRESH MATERIALIZED VIEW container_sbom;")
         print("SBOM view materialized.", flush=True)
+
+def update_run_date():
+    with psycopg.connect(pdsn) as conn:
+        cur1 = conn.cursor(row_factory=dict_row)
+        cur1.execute("UPDATE sysprefs SET last_sbomgen_run_date = %s WHERE userid = %s",(sbomgen_run_date,'system'))
 
 # main
 db_host=os.environ.get('DB_HOST')
@@ -50,5 +55,8 @@ db_password=os.environ.get('DB_PASSWORD')
 
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
 
+sbomgen_run_date=datetime.now()
+
 loop_db()
+update_run_date()
 sys.exit(0)
