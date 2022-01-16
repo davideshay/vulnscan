@@ -282,8 +282,7 @@ db_host=os.environ.get('DB_HOST')
 db_name=os.environ.get('DB_NAME')
 db_user=os.environ.get('DB_USER')
 db_password=os.environ.get('DB_PASSWORD')
-refresh_all_txt=os.environ.get('REFRESH_ALL')
-refresh_all=(refresh_all_txt.upper() in ['1',"TRUE","YES"])
+refresh_all_txt=os.environ.get('REFRESH_ALL','1')
 min_log_lvl_txt=os.environ.get('MIN_LOG_LVL','I').upper()
 if min_log_lvl_txt in ('I','INFO'):
     min_log_lvl=msg_lvl.info
@@ -296,12 +295,9 @@ elif min_log_lvl_txt in ('E','ERROR'):
 else:
     min_log_lvl=msg_lvl.info
 apprise_config_yaml=os.environ.get('APPRISE_CONFIG_YAML')
-app_url=os.environ.get('APP_URL')
-test_mode_txt=os.environ.get('TEST_MODE')
-if test_mode_txt is None:
-    test_mode=False
-else:
-    test_mode=(test_mode_txt.upper() in ['1','TRUE','YES'])
+app_url=os.environ.get('APP_URL','http://vulnscan.local')
+test_mode_txt=os.environ.get('TEST_MODE','0')
+test_mode=(test_mode_txt.upper() in ['1','TRUE','YES'])
 test_date_txt=os.environ.get('TEST_DATE')
 if test_mode and test_date_txt is not None:
     test_date=datetime.datetime.fromisoformat(test_date_txt)
