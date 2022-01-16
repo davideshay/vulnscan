@@ -298,9 +298,13 @@ else:
 apprise_config_yaml=os.environ.get('APPRISE_CONFIG_YAML')
 app_url=os.environ.get('APP_URL')
 test_mode_txt=os.environ.get('TEST_MODE')
-test_mode=(test_mode_txt.upper() in ['1','TRUE','YES'])
+if test_mode_txt is None:
+    test_mode=False
+else:
+    test_mode=(test_mode_txt.upper() in ['1','TRUE','YES'])
 test_date_txt=os.environ.get('TEST_DATE')
-test_date=datetime.datetime.fromisoformat(test_date_txt)
+if test_mode and test_date_txt is not None:
+    test_date=datetime.datetime.fromisoformat(test_date_txt)
 
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
 
