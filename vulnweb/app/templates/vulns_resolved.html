@@ -1,0 +1,132 @@
+<html>
+<head>
+<link rel="stylesheet" type="text/css" href="https://cdn.datatables.net/1.11.3/css/jquery.dataTables.css">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='jquery.dataTables.yadcf.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+<link rel="stylesheet" type="text/css" href="{{ url_for('static',filename='vulnscan_global.css') }}">
+<style>
+  span.no-show{
+    display: none;
+  }
+span.ellipsis:after{
+    content: "...";
+  }
+
+  table.display {
+    margin: 0;
+  }
+
+#yadcf-filter--data-1 {
+  width: 300px;
+}
+
+#yadcf-filter--data-2 {
+  width: 175px;
+}
+
+</style>
+<script type="text/javascript" charset="utf8" src="https://code.jquery.com/jquery-3.5.1.js"></script>
+<script type="text/javascript" charset="utf8" src="https://cdn.datatables.net/1.11.3/js/jquery.dataTables.js"></script>
+<script type="text/javascript" charset-"utf8" src=" {{ url_for('static', filename='jquery.dataTables.yadcf.js') }}"></script>
+<script type="text/javascript" charset-"utf8" src=" {{ url_for('static', filename='datatable-ellipsis.js') }}"></script>
+
+<script type="text/javascript" language="javascript" class="init">
+
+function newDateFormat(indate) {
+  var rowdate=new Date(indate);
+  mylocale=Intl.DateTimeFormat().resolvedOptions().locale
+  dt_options={year: 'numeric', month: 'numeric', day: 'numeric'}
+  tm_options={hour: 'numeric', minute: 'numeric'}
+  retval=Intl.DateTimeFormat(mylocale,dt_options).format(rowdate)
+  retval=retval+" "+Intl.DateTimeFormat(mylocale,tm_options).format(rowdate)
+  return retval
+}
+
+
+$(document).ready(function() {
+    rTable = $('#data').DataTable( {
+        "ajax": { "url" : "/api/vulns_resolved",
+                  "dataSrc" : "data"},
+        "columns": [
+            { "data": "id" },
+            { "data": "image"},
+            { "data": "image_id_digest"},
+            { "data": "vuln_id" },
+            { "data": "vuln_datasource"},
+            { "data": "vuln_severity" },
+            { "data": "artifact_name" },
+            { "data": "artifact_version" },
+            { "data": "vuln_resolved_date" }
+        ],
+        "pageLength": 15,
+        "scrollX": true,
+
+        "columnDefs": [
+          { visible: false, targets: [0,2,4]},
+          { "targets": 3,
+            "render": function ( data, type, row, meta ) {
+              if (data != null) {
+              return '<a href="'+row.vuln_datasource+'" target="popup" onclick="window.open(\''+row.vuln_datasource+'\',\'popup\',\'width=800,height=800\'); return false;">'+data+'</a>';}
+              else { return '';} }
+            },
+            { "targets": 8,
+                "render": function (data, type, row, meta ) {
+                  retval=newDateFormat(row.vuln_resolved_date);
+                  return retval
+                }
+              },
+          { "render": $.fn.dataTable.render.ellipsisAltText(55,false,null,"image_id_digest"), "targets": 1},
+          { "width": "325px", "targets": 1},
+          { "render": $.fn.dataTable.render.ellipsis(30), "targets": 2},
+          { "width": "200px", "targets": 2},
+
+        ],
+    } );
+
+    yadcf.init(rTable, [
+      {column_number: 1, filter_type: 'select'},
+      {column_number: 3, filter_type: 'select'},
+      {column_number: 5, filter_type: 'select'},
+      {column_number: 6, filter_type: 'select'},
+      {column_number: 7, filter_type: 'select'},
+      {column_number: 8, filter_type: 'select',
+        column_data_type: 'rendered_html',
+        column_data_render: function (data) {return newDateFormat(data.vuln_resolved_date)}},
+
+    ],
+    {
+      cumulative_filtering: true
+    });
+
+} );
+</script>
+<title>Resolved Vulnerabilities</title>
+</head>
+<body>
+  <div class="navbar">
+    <a href="/containers">Containers</a>
+    <a href="/vulnerabilities">Vulnerabilities</a>
+    <a href="/sboms">Software BOMs</a>
+    <a href="/ignorelist">Ignore List</a>
+    <a class="current" href="/vulns_resolved">Resolved Vulnerabilities</a>
+    <a href="/settings">Settings</a>
+  </div>
+
+  <table id="data" class="display">
+    <thead>
+        <tr>
+            <th>ID</th>
+            <th>Image</th>
+            <th>Image ID</th>
+            <th>Vulnerability</th>
+            <th>Data Source</th>
+            <th>Severity</th>
+            <th>Artifact</th>
+            <th>Version</th>
+            <th>Resolved Date</th>
+        </tr>
+    </thead>
+
+</table>
+</body>
+</html>

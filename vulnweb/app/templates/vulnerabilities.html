@@ -35,6 +35,9 @@
   #yadcf-filter--data-8 {
     width: 100px;
   }
+  #yadcf-filter--data-10 {
+    width: 125px;
+  }
   #yadcf-filter--data-11 {
     width: 125px;
   }
@@ -172,6 +175,8 @@ $(document).ready(function() {
       {column_number: 5, filter_type: 'select'},
       {column_number: 7, filter_type: 'select'},
       {column_number: 8, filter_type: 'select'},
+      {column_number: 10, filter_type: 'select', filter_match_mode:'exact'},
+
     ],
     {
       cumulative_filtering: true
@@ -213,6 +218,7 @@ $(document).ready(function() {
     <a class="current" href="/vulnerabilities">Vulnerabilities</a>
     <a href="/sboms">Software BOMs</a>
     <a href="/ignorelist">Ignore List</a>
+    <a href="/vulns_resolved">Resolved Vulnerabilities</a>
     <a href="/settings">Settings</a>
   </div>
 

@@ -1,14 +1,21 @@
 import psycopg
-from datetime import datetime
+from datetime import datetime,date
 from psycopg.rows import dict_row
 import sys, os, json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from os import curdir, sep
 import flask
 from flask import render_template, Flask, request, redirect
+from flask.json import JSONEncoder
+
 
 app = Flask(__name__, static_folder="static")
 
+class DateJSONEncoder(JSONEncoder):
+    def default(self, o):
+        if isinstance(o, date):
+            return o.isoformat()
+        return super().default(o)
 
 def get_vulnerabilities(specific_modified_date):
     vulns=[]
@@ -132,6 +139,19 @@ def get_ignorelist():
         for row in cur:
             ignorelist.append(row)
     return ignorelist
+
+def get_vulns_resolved():
+    vulns_resolved=[]
+    with psycopg.connect(pdsn) as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("""
+            SELECT id, vuln_resolved_date, vuln_id, vuln_severity, vuln_datasource,
+                artifact_name, artifact_version, imageid, image, image_id_digest
+            FROM vulns_resolved;
+            """)
+        for row in cur:
+            vulns_resolved.append(row)
+    return vulns_resolved
 
 def check_add_ignorelist(vuln_id,artifact_name,artifact_version,namespace,container,image,image_id_digest):
     with psycopg.connect(pdsn) as conn:
@@ -279,6 +299,11 @@ def api_settings():
         formmessage="Error updating settings"
     return formmessage
 
+@app.route('/api/vulns_resolved', methods=['GET'])
+def api_vulns_resolved():
+    data={"data": get_vulns_resolved()}
+    return data
+
 @app.route('/subform/addignorelist', methods=['GET'])
 def app_subform_ignorelist():
     return render_template('add_ignorelist.html')
@@ -329,6 +354,11 @@ def app_settings():
     sysprefs=get_sysprefs()
     return render_template('settings.html', SYSPREFS=sysprefs)
 
+@app.route('/vulns_resolved/', methods=['GET'])
+def app_vulns_resolved():
+    sysprefs=get_sysprefs()
+    return render_template('vulns_resolved.html', SYSPREFS=sysprefs)
+
 @app.route('/', methods=['GET'])
 def app_home():
     return redirect('/containers', code=302)
@@ -342,8 +372,9 @@ db_password=os.environ.get('DB_PASSWORD')
 
 APP_URL=os.environ.get('APP_URL')
 
-
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
+
+app.json_encoder = DateJSONEncoder
 
 if (__name__ == '__main__'):
     app.run(host='0.0.0.0', port='80')

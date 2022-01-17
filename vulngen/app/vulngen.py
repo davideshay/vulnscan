@@ -283,6 +283,7 @@ db_name=os.environ.get('DB_NAME')
 db_user=os.environ.get('DB_USER')
 db_password=os.environ.get('DB_PASSWORD')
 refresh_all_txt=os.environ.get('REFRESH_ALL','1')
+refresh_all=(refresh_all_txt.upper() in ['1','TRUE','YES'])
 min_log_lvl_txt=os.environ.get('MIN_LOG_LVL','I').upper()
 if min_log_lvl_txt in ('I','INFO'):
     min_log_lvl=msg_lvl.info
