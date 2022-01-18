@@ -260,8 +260,8 @@ def generate_run_report():
         run_date_isostr=parse.quote(test_date.isoformat())
     else:
         run_date_isostr=parse.quote(run_vulngen_date.isoformat())
-    vuln_link_txt=f"{app_url}/vulnerabilities/?mod_date_isostr={run_date_isostr}"
-    vulns_resolved_link_txt=f"{app_url}/resolved/?mod_date_isostr={run_date_isostr}"
+    vuln_link_txt=f"{app_url}/vulnerabilities/date/{run_date_isostr}"
+    vulns_resolved_link_txt=f"{app_url}/vulns_resolved/date/{run_date_isostr}"
 
     log_msg(msg_lvl.info,vuln_count_txt)
     log_msg(msg_lvl.info,vuln_link_txt)

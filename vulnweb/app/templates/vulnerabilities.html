@@ -58,6 +58,9 @@
 <script type="text/javascript" language="javascript" class="init">
 
 var compdate=new Date()
+var comp_specific_date_str=null
+
+var vulnoptions={};
 
 var toolbarhtml=`
   <label for="time-range-value">Vulnerabilities changed since:</label>
@@ -68,27 +71,44 @@ var toolbarhtml=`
     <option value="days">days</option>
     <option value="hours">hours</option>
   </select>
+  <label for="specificmoddate">or Specific change date:</label>
+  <select class="specificmoddate" name="specificmoddate" id="specificmoddate"></select>
 `;
 
 $.fn.dataTable.ext.search.push(
     function( settings, data, dataIndex ) {
-        if ( $('#time-range-value').val() == "ALL")
+      var rowmoddate = new Date(data[12])
+      var rowmoddate_str = data[12]
+      var specificmoddate_current = $('#specificmoddate').val()
+      if ((specificmoddate_current != null) && (specificmoddate_current != '')) {
+        return (rowmoddate_str == specificmoddate_current)
+      }
+ 
+      if ( $('#time-range-value').val() == "ALL")
          {
            return true
          }
-        var rowmoddate = new Date(data[12])
-        if (rowmoddate >= compdate) {
-          return true
-        }
-        else {
-          return false
-        }
+         return (rowmoddate >= compdate)
     }
 );
 
 $(document).ready(function() {
 
     vulnparams={ mod_date_isostr : "{{MOD_DATE_ISOSTR}}" }
+
+      
+    var toolbarhtml=`
+      <label for="time-range-value">Vulnerabilities changed since:</label>
+      <select class="time-range-value" name="time-range-value" id="time-range-value">
+        <option value="ALL">ALL</option>
+      </select>
+      <select class="time-range-units" name="time-range-units" id="time-range-units">
+        <option value="days">days</option>
+        <option value="hours">hours</option>
+      </select>
+      <label for="specificmoddate">or Specific change date:</label>
+      <select class="specificmoddate" name="specificmoddate" id="specificmoddate"></select>
+    `;
 
     vTable = $('#data').DataTable( {
         "ajax": { "url" : "/api/vulnerabilities",
@@ -191,6 +211,24 @@ $(document).ready(function() {
         }
     });
 
+    $.ajax({
+        url: "/api/vulnerabilities/options",
+        contentType: "application/json; charset=utf-8",
+        success: function(retoptions, textStatus, jqXHR) {
+          vulnoptions=retoptions;
+          for (const dto of vulnoptions.options.vuln_last_modified_dates) {
+              $('#specificmoddate').append($('<option>', {value:dto, text:dto}));
+              // jquery append to options list
+             };
+           mod_date_compstr=vulnparams.mod_date_isostr.replace(/T/g," ");  
+           $('#specificmoddate').val(mod_date_compstr); 
+        },
+        error: function(jqXHR, textStatus, errorThrown) {
+          alert("Error getting options");
+        },
+        method: "GET"
+      });
+
     $('#time-range-value, #time-range-units').bind("change keyup", function() {
         var rangeval = parseInt( $('#time-range-value').val() );
         var rangeunits = $('#time-range-units').val()
@@ -205,6 +243,9 @@ $(document).ready(function() {
         vTable.draw();
     } );
 
+    $('#specificmoddate').bind("change keyup", function() {
+        vTable.draw();
+    } );
 
 } );
 
@@ -221,6 +262,8 @@ $(document).ready(function() {
     <a href="/vulns_resolved">Resolved Vulnerabilities</a>
     <a href="/settings">Settings</a>
   </div>
+
+
 
   <div class=container>
   <table id="data" class="display">

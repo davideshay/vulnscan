@@ -5,7 +5,7 @@ import sys, os, json
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from os import curdir, sep
 import flask
-from flask import render_template, Flask, request, redirect
+from flask import render_template, Flask, request, redirect, url_for
 from flask.json import JSONEncoder
 
 
@@ -39,6 +39,22 @@ def get_vulnerabilities(specific_modified_date):
         for row in cur:
             vulns.append(row)
     return vulns
+
+def get_vulnerabilities_options():
+    options_list={}
+    date_list=[]
+    with psycopg.connect(pdsn) as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("""
+            SELECT vuln_last_modified_date
+            FROM container_vulnerabilities
+            GROUP BY vuln_last_modified_date
+            ORDER BY vuln_last_modified_date DESC;
+            """)
+        for row in cur:
+            date_list.append(row["vuln_last_modified_date"])
+    options_list= { "vuln_last_modified_dates": date_list }      
+    return options_list
 
 def get_vulnerability_json(container_id):
     with psycopg.connect(pdsn) as conn:
@@ -140,18 +156,43 @@ def get_ignorelist():
             ignorelist.append(row)
     return ignorelist
 
-def get_vulns_resolved():
+def get_vulns_resolved(specific_modified_date):
     vulns_resolved=[]
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
-        cur.execute("""
-            SELECT id, vuln_resolved_date, vuln_id, vuln_severity, vuln_datasource,
-                artifact_name, artifact_version, imageid, image, image_id_digest
-            FROM vulns_resolved;
-            """)
+        if specific_modified_date is None:
+            cur.execute("""
+                SELECT id, vuln_resolved_date, vuln_id, vuln_severity, vuln_datasource,
+                    artifact_name, artifact_version, imageid, image, image_id_digest
+                FROM vulns_resolved;
+                """)
+        else:
+            cur.execute("""
+                SELECT id, vuln_resolved_date, vuln_id, vuln_severity, vuln_datasource,
+                    artifact_name, artifact_version, imageid, image, image_id_digest
+                FROM vulns_resolved
+                WHERE vuln_resolved_date=%s;
+                """,(str(specific_modified_date),))       
         for row in cur:
             vulns_resolved.append(row)
     return vulns_resolved
+
+
+def get_vulns_resolved_options():
+    options_list={}
+    date_list=[]
+    with psycopg.connect(pdsn) as conn:
+        cur = conn.cursor(row_factory=dict_row)
+        cur.execute("""
+            SELECT vuln_resolved_date
+            FROM vulns_resolved
+            GROUP BY vuln_resolved_date
+            ORDER BY vuln_resolved_date DESC;
+            """)
+        for row in cur:
+            date_list.append(row["vuln_resolved_date"])
+    options_list= { "vuln_resolved_dates": date_list }      
+    return options_list
 
 def check_add_ignorelist(vuln_id,artifact_name,artifact_version,namespace,container,image,image_id_digest):
     with psycopg.connect(pdsn) as conn:
@@ -213,11 +254,19 @@ def update_settings(settings):
 @app.route('/api/vulnerabilities',methods=['GET'])
 def api_vulnerabilities():
     mod_date_isostr=request.args.get('mod_date_isostr',None)
-    if (mod_date_isostr is None) or (mod_date_isostr == '') :
-        data={"data": get_vulnerabilities(None)}
+    if (mod_date_isostr is None) or (mod_date_isostr == '') or (mod_date_isostr == 'None'): 
+        print("No mod_date_isostr, getting all vulnerabilities")
+        data=get_vulnerabilities(None)
     else:
-        data={"data": get_vulnerabilities(datetime.fromisoformat(mod_date_isostr))}
-    return data
+        data=get_vulnerabilities(datetime.fromisoformat(mod_date_isostr))
+    rdata={"data":data}
+    return rdata
+
+@app.route('/api/vulnerabilities/options',methods=['GET'])
+def api_vulnerabilities_options():
+    roptions=get_vulnerabilities_options()
+    rdata={"options":roptions}
+    return rdata
 
 @app.route('/api/container_vulnerabilities', methods=['GET'])
 def api_container_vulnerabilities():
@@ -226,8 +275,7 @@ def api_container_vulnerabilities():
         data=get_container_vulnerabilities(int(container_id_str))
     else:
         data={}
-    rdata={"data": data}
-    return rdata
+    return data
 
 @app.route('/api/sboms', methods=['GET'])
 def api_sboms():
@@ -301,8 +349,19 @@ def api_settings():
 
 @app.route('/api/vulns_resolved', methods=['GET'])
 def api_vulns_resolved():
-    data={"data": get_vulns_resolved()}
-    return data
+    mod_date_isostr=request.args.get('mod_date_isostr',None)
+    if (mod_date_isostr is None) or (mod_date_isostr == '') or (mod_date_isostr == 'None'): 
+        data=get_vulns_resolved(None)
+    else:
+        data=get_vulns_resolved(datetime.fromisoformat(mod_date_isostr))
+    rdata={"data":data}
+    return rdata
+    
+@app.route('/api/vulns_resolved/options',methods=['GET'])
+def api_vulns_resolved_options():
+    roptions=get_vulns_resolved_options()
+    rdata={"options":roptions}
+    return rdata
 
 @app.route('/subform/addignorelist', methods=['GET'])
 def app_subform_ignorelist():
@@ -315,8 +374,18 @@ def app_ignorelist():
 
 @app.route('/vulnerabilities/', methods=['GET'])
 def app_vulnerabiliites():
-    mod_date_isostr=request.args.get('mod_date_isostr',"")
-    return render_template('vulnerabilities.html',APP_URL=APP_URL,MOD_DATE_ISOSTR=mod_date_isostr)
+    global g_mod_date_isostr
+    p_mod_date_isostr=g_mod_date_isostr
+    g_mod_date_isostr=None
+    return render_template('vulnerabilities.html',APP_URL=APP_URL,MOD_DATE_ISOSTR=p_mod_date_isostr)
+
+@app.route('/vulnerabilities/date/<mod_date_isostr>', methods=['GET'])
+def app_vulnerabiliites_date(mod_date_isostr):
+    global g_mod_date_isostr
+    print("mod_date_isostr is "+str(mod_date_isostr))
+    g_mod_date_isostr=mod_date_isostr
+    return redirect('/vulnerabilities',302)
+
 
 @app.route('/vulnerability/', methods=['GET'])
 def app_vulnerability():
@@ -357,7 +426,16 @@ def app_settings():
 @app.route('/vulns_resolved/', methods=['GET'])
 def app_vulns_resolved():
     sysprefs=get_sysprefs()
-    return render_template('vulns_resolved.html', SYSPREFS=sysprefs)
+    global g_mod_date_isostr
+    p_mod_date_isostr=g_mod_date_isostr
+    g_mod_date_isostr=None
+    return render_template('vulns_resolved.html', SYSPREFS=sysprefs,MOD_DATE_ISOSTR=p_mod_date_isostr)
+
+@app.route('/vulns_resolved/date/<mod_date_isostr>', methods=['GET'])
+def app_vulns_resolved_date(mod_date_isostr):
+    global g_mod_date_isostr
+    g_mod_date_isostr=mod_date_isostr
+    return redirect('/vulns_resolved',302)
 
 @app.route('/', methods=['GET'])
 def app_home():
@@ -375,6 +453,8 @@ APP_URL=os.environ.get('APP_URL')
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
 
 app.json_encoder = DateJSONEncoder
+
+g_mod_date_isostr = None
 
 if (__name__ == '__main__'):
     app.run(host='0.0.0.0', port='80')

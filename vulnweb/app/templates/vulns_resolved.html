@@ -42,8 +42,13 @@ function newDateFormat(indate) {
   return retval
 }
 
+var vulnoptions={};
+
 
 $(document).ready(function() {
+
+    vulnparams={ mod_date_isostr : "{{MOD_DATE_ISOSTR}}" }
+
     rTable = $('#data').DataTable( {
         "ajax": { "url" : "/api/vulns_resolved",
                   "dataSrc" : "data"},
@@ -97,6 +102,19 @@ $(document).ready(function() {
     {
       cumulative_filtering: true
     });
+
+
+    console.log("vulnparams");
+      console.log(vulnparams);
+
+    md_iso=vulnparams.mod_date_isostr;
+
+    if ((md_iso != null) && (md_iso != "") && (md_iso != "None")) {
+        mod_date_compstr=newDateFormat(md_iso.replace(/T/g," "));  
+        yadcf.exFilterColumn(rTable, [
+          [8, mod_date_compstr]
+        ]);
+    }
 
 } );
 </script>
