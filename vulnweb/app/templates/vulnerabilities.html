@@ -77,13 +77,12 @@ var toolbarhtml=`
 
 $.fn.dataTable.ext.search.push(
     function( settings, data, dataIndex ) {
-      var rowmoddate = new Date(data[12])
-      var rowmoddate_str = data[12]
-      var specificmoddate_current = $('#specificmoddate').val()
+      var rowmoddate = new Date(data[12]);
+      var rowmoddate_str = data[12];
+      var specificmoddate_current = $('#specificmoddate').val();
       if ((specificmoddate_current != null) && (specificmoddate_current != '')) {
-        return (rowmoddate_str == specificmoddate_current)
+        return (rowmoddate_str == specificmoddate_current);
       }
- 
       if ( $('#time-range-value').val() == "ALL")
          {
            return true
@@ -112,7 +111,6 @@ $(document).ready(function() {
 
     vTable = $('#data').DataTable( {
         "ajax": { "url" : "/api/vulnerabilities",
-                  "data": vulnparams,
                   "dataSrc" : "data"},
         dom: 'Bl<"toolbar">frtip',
         "buttons": [
@@ -244,7 +242,7 @@ $(document).ready(function() {
     } );
 
     $('#specificmoddate').bind("change keyup", function() {
-        vTable.draw();
+      vTable.draw();
     } );
 
 } );
