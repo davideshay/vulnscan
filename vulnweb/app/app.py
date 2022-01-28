@@ -44,7 +44,7 @@ def get_vulnerabilities_options():
             """)
         for row in cur:
             date_list.append(row["vuln_last_modified_date"])
-    options_list= { "vuln_last_modified_dates": date_list }      
+    options_list= { "vuln_last_modified_dates": date_list }
     return options_list
 
 def get_vulnerability_json(container_id):
@@ -174,7 +174,7 @@ def get_vulns_resolved_options():
             """)
         for row in cur:
             date_list.append(row["vuln_resolved_date"])
-    options_list= { "vuln_resolved_dates": date_list }      
+    options_list= { "vuln_resolved_dates": date_list }
     return options_list
 
 def check_add_ignorelist(vuln_id,artifact_name,artifact_version,namespace,container,image,image_id_digest):
@@ -249,7 +249,7 @@ def api_vulnerabilities_options():
 def api_container_vulnerabilities():
     container_id_str=request.args.get('id',None)
     if container_id_str.isnumeric():
-        data=get_container_vulnerabilities(int(container_id_str))
+        data={"data": get_container_vulnerabilities(int(container_id_str))}
     else:
         data={}
     return data
