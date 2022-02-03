@@ -11,8 +11,8 @@ import os, sys, json, tempfile, subprocess
 from psycopg.types.json import Jsonb, set_json_dumps, set_json_loads
 from functools import partial
 from enum import IntEnum
-import apprise
 from urllib import parse
+import requests
 
 class msg_lvl(IntEnum):
     debug = 1
@@ -114,6 +114,7 @@ def check_and_update_vulns(sbom,sbom_gen_date,imageid,imagename,image_id_digest)
     vulngenjsontxt = vulngenfile.stdout.decode()
     if vulngenfile.returncode != 0:
         log_msg(msg_lvl.error,f"Error executing grype command, error code: {vulngenfile.returncode}")
+#    log_msg(msg_lvl.debug,f"json for {imagename} : {vulngenjsontxt}")    
     if len(vulngenjsontxt) > 0:
         vulngenjson=json.loads(vulngenjsontxt)
         lookup_cur_dict={}
@@ -269,6 +270,35 @@ def generate_run_report():
     log_msg(msg_lvl.info,vulns_resolved_txt)
     log_msg(msg_lvl.info,vulns_resolved_link_txt)
 
+    alerts = []
+    alert_status="firing"
+    alert_labels={}
+    alert_labels["alertname"]="vulnscan"
+    alert_labels["service"]="vulnscan"
+    if total_vulns>0:
+        alert_labels["severity"]="error"
+    else:
+        alert_labels["severity"]="info"
+    alert_labels["instance"]="instance"
+    alert_annotations={}
+    alert_annotations["summary"]=vuln_count_txt + ". " + vulns_resolved_txt
+    alert_annotations["description"]=vuln_count_txt + ". Here: "+vuln_link_txt + " . "+ vulns_fixed_txt + " . " + vulns_resolved_txt + " . Here: " + vulns_resolved_link_txt
+    generatorURL = app_url
+    starts_at=run_date_isostr
+    alerts.append({"status": alert_status, \
+                  "labels": alert_labels, \
+                  "annotations": alert_annotations, \
+                  "startsAt": run_vulngen_date_tz.isoformat(timespec="seconds"), \
+                  "generatorURL": generatorURL })
+    jsonData=json.dumps(alerts)
+    full_url=f"{alert_manager_url}/api/v1/alerts"
+    log_msg(msg_lvl.debug,full_url)
+    log_msg(msg_lvl.debug,jsonData)
+    response=requests.post( full_url, json=alerts)
+    log_msg(msg_lvl.debug,response)
+    if not response.ok:
+        log_msg(msg_lvl.error,"Error posting alert to alertmanager.")
+
 def update_run_date():
     with psycopg.connect(pdsn) as conn:
         cur1 = conn.cursor(row_factory=dict_row)
@@ -295,7 +325,9 @@ elif min_log_lvl_txt in ('E','ERROR'):
     min_log_lvl=msg_lvl.error
 else:
     min_log_lvl=msg_lvl.info
-apprise_config_yaml=os.environ.get('APPRISE_CONFIG_YAML')
+send_alert_txt=os.environ.get('SEND_ALERT','0')
+send_alert=(send_alert_txt.upper() in ['1','TRUE','YES'])
+alert_manager_url=os.environ.get('ALERT_MANAGER_URL','http://alert.local')
 app_url=os.environ.get('APP_URL','http://vulnscan.local')
 test_mode_txt=os.environ.get('TEST_MODE','0')
 test_mode=(test_mode_txt.upper() in ['1','TRUE','YES'])
@@ -306,6 +338,7 @@ if test_mode and test_date_txt is not None:
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
 
 run_vulngen_date=datetime.datetime.now()
+run_vulngen_date_tz=datetime.datetime.now(datetime.timezone.utc)
 date_key_name="last_modified_date"
 match_image_without_tags=False
 
