@@ -107,7 +107,8 @@ $(document).ready(function() {
     md_iso=vulnparams.mod_date_isostr;
 
     if ((md_iso != null) && (md_iso != "") && (md_iso != "None")) {
-        mod_date_compstr=newDateFormat(md_iso.replace(/T/g," "));  
+//        mod_date_compstr=newDateFormat(md_iso.replace(/T/g," "));
+        mod_date_compstr=newDateFormat(md_iso+"Z");
         yadcf.exFilterColumn(rTable, [
           [8, mod_date_compstr]
         ]);
