@@ -9,6 +9,17 @@ import psycopg
 from datetime import datetime, timedelta
 from psycopg.rows import dict_row
 import sys, os
+from enum import IntEnum
+
+class msg_lvl(IntEnum):
+    debug = 1
+    info = 2
+    warning = 3
+    error = 4
+
+def log_msg(lvl, message):
+    if lvl >= min_log_lvl:
+        print(f"level={lvl.name} ts={datetime.now()} msg={message}",flush=True)
 
 def check_create_table():
     cur_schema=0
@@ -18,7 +29,7 @@ def check_create_table():
         cur.execute("select * from information_schema.tables where table_name=%s",('sysprefs',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
-            print("Initial run, schema table did not exist, creating", flush=True)
+            log_msg(msg_lvl.info,"Initial run, schema table did not exist, creating")
             cur.execute("""
                 CREATE TABLE sysprefs (
                     userid text NOT NULL PRIMARY KEY,
@@ -41,7 +52,7 @@ def check_create_table():
         cur.execute("select * from information_schema.tables where table_name=%s",('images',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
-            print("Initial run, images table did not exist, creating", flush=True)
+            log_msg(msg_lvl.info,"Initial run, images table did not exist, creating")
             cur.execute("""
                 CREATE TABLE images (
                     id serial PRIMARY KEY,
@@ -61,7 +72,7 @@ def check_create_table():
         cur.execute("select * from information_schema.tables where table_name=%s",('containers',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
-            print("Initial run, containers table did not exist, creating", flush=True)
+            log_msg(msg_lvl.info,"Initial run, containers table did not exist, creating")
             cur.execute("""
                 CREATE TABLE containers (
                     id serial PRIMARY KEY,
@@ -81,7 +92,7 @@ def check_create_table():
         cur.execute("select * from information_schema.tables where table_name=%s",('vuln_ignorelist',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
-            print("Initial run, ignorelist table did not exist, creating", flush=True)
+            log_msg(msg_lvl.info,"Initial run, ignorelist table did not exist, creating")
             cur.execute("""
                 CREATE TABLE vuln_ignorelist (
                     id serial PRIMARY KEY,
@@ -96,7 +107,7 @@ def check_create_table():
         cur.execute("select * from information_schema.tables where table_name=%s",('vulns_resolved',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
-            print("Initial run, vulns_resolved table did not exist, creating", flush=True)
+            log_msg(msg_lvl.info,"Initial run, vulns_resolved table did not exist, creating")
             cur.execute("""
                 CREATE TABLE vulns_resolved (
                     id serial PRIMARY KEY,
@@ -124,8 +135,8 @@ def check_create_table():
             """)
         conn.commit()
         if cur_schema<1:
-            print(f"Prior version of schema detected: {cur_schema} -- upgrading to target {tgt_schema}.")
-            print(f"Dropping all views, materialized views, and functions. Will be recreated.")
+            log_msg(msg_lvl.info,f"Prior version of schema detected: {cur_schema} -- upgrading to target {tgt_schema}.")
+            log_msg(msg_lvl.info,f"Dropping all views, materialized views, and functions. Will be recreated.")
             cur.execute("DROP TRIGGER on_ignorelist_table_update ON vuln_ignorelist;")
             cur.execute("DROP FUNCTION IF EXISTS refresh_vuln_view();")
             cur.execute("DROP MATERIALIZED VIEW IF EXISTS container_sbom;")
@@ -165,7 +176,7 @@ def check_create_table():
             """)
         conn.commit()
         cur.execute("DROP MATERIALIZED VIEW IF EXISTS container_vulnerabilities");
-        print("Dropping and re-creating materialized view container_vulnerabilities...",flush=True)
+        log_msg(msg_lvl.info,"Dropping and re-creating materialized view container_vulnerabilities...")
         cur.execute("""
             create materialized view container_vulnerabilities
             as
@@ -195,7 +206,7 @@ def check_create_table():
             """)
         conn.commit()
         cur.execute("DROP MATERIALIZED VIEW IF EXISTS container_sbom");
-        print("Dropping and re-creating materialized view container_sbom...",flush=True)
+        log_msg(msg_lvl.info,"Dropping and re-creating materialized view container_sbom...")
         cur.execute("""
             CREATE MATERIALIZED VIEW container_sbom
             AS
@@ -241,7 +252,7 @@ def check_create_table():
         cur.execute("select tgname from pg_catalog.pg_trigger where NOT tgisinternal and tgname=%s",('on_ignorelist_table_update',))
         tbl_exists=bool(cur.rowcount)
         if not tbl_exists:
-            print("Initial run, ignorelist trigger being created...")
+            log_msg(msg_lvl.info,"Initial run, ignorelist trigger being created...")
             cur.execute("""
                 CREATE TRIGGER on_ignorelist_table_update
                     AFTER UPDATE OR INSERT OR DELETE
@@ -259,7 +270,7 @@ def check_record(p_conn, p_namespace, p_container, p_initcontainer, p_image, p_i
         cur.execute("SELECT * from images where image = %s AND image_id_digest = %s;",(p_image,p_image_id_digest,))
         image_exists=bool(cur.rowcount)
         if not image_exists:
-            print("No record for image " + p_image + "/" + p_image_id_digest + " found. Creating...",flush=True)
+            log_msg(msg_lvl.info,"No record for image " + p_image + "/" + p_image_id_digest + " found. Creating...")
             cur.execute("""
                 INSERT INTO images (image, image_id_digest, image_running, last_image_scan_date,
                 sbom_generated, vulnscan_generated )
@@ -280,14 +291,14 @@ def check_record(p_conn, p_namespace, p_container, p_initcontainer, p_image, p_i
             """,(p_namespace, p_container, p_initcontainer_txt))
         cont_exists=bool(cur.rowcount)
         if not cont_exists:
-            print("No existing record for container " + p_container + " found... Creating...", flush=True)
+            log_msg(msg_lvl.info,"No existing record for container " + p_container + " found... Creating...")
             cur.execute("""
                 INSERT INTO containers (namespace, container, init_container, imageid, pod,
                     container_running, last_container_scan_date )
                 VALUES (%s, %s, %s, %s, %s, %s, %s);""",
                 (p_namespace, p_container, p_initcontainer_txt, db_image_id, p_pod, True, podreader_run_date))
         else:
-            print("Updating existing record/s for container " + p_container + "...",flush=True)
+            log_msg(msg_lvl.info,"Updating existing record/s for container " + p_container + "...")
             cur.execute("""
                 UPDATE containers SET container_running=%s, last_container_scan_date=%s , imageid=%s WHERE
                 namespace=%s AND container=%s AND init_container=%s ;
@@ -311,7 +322,7 @@ def read_pods():
                     pods.append(apprec)
 
 def loop_psql():
-    print("Checking database pods vs. active pods...",flush=True)
+    log_msg(msg_lvl.info,"Checking database pods vs. active pods...")
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("SELECT id, image, image_id_digest FROM images WHERE image_running;")
@@ -321,7 +332,7 @@ def loop_psql():
                 if (pod["image_id_digest"] == row["image_id_digest"]) and (pod["image"] == row["image"]):
                     podexists=True
             if not podexists:
-                print("found image " + row["image"] + "/" + row["image_id_digest"] + " in image database not currently running...",flush=True)
+                log_msg(msg_lvl.info,"found image " + row["image"] + "/" + row["image_id_digest"] + " in image database not currently running...")
                 curupdate = conn.cursor()
                 curupdate.execute("UPDATE images SET image_running=%s WHERE id=%s;",(False, row["id"]))
         cur.execute("SELECT id, namespace, container, init_container, pod FROM containers WHERE container_running;")
@@ -332,7 +343,7 @@ def loop_psql():
                 and pod["init_container"] == row["init_container"] ):
                     podexists=True
             if not podexists:
-                print("found container "+ row["pod"] + " in namespace " + row["namespace"] + " in database not currently running...",flush=True)
+                log_msg(msg_lvl.info,"found container "+ row["pod"] + " in namespace " + row["namespace"] + " in database not currently running...")
                 curupdate = conn.cursor()
                 curupdate.execute("UPDATE containers SET container_running=%s WHERE id=%s;",(False, row["id"]))
 
@@ -340,27 +351,27 @@ def loop_pods():
     try:
         read_pods()
     except Exception as e:
-        print(str({"level": "error", "message": str(e), "traceback": traceback.format_exc()}))
+        log_msg(msg_lvl.error,str({"level": "error", "message": str(e), "traceback": traceback.format_exc()}))
         loop_pods()
 
 def expire_conts():
     if expire_containers:
-        print("Expiring pods older than " + str(expire_days) + " days...")
+        log_msg(msg_lvl.info,"Expiring pods older than " + str(expire_days) + " days...")
     else:
-        print("Expire pods not enabled, skipping expiration")
+        log_msg(msg_lvl.info,"Expire pods not enabled, skipping expiration")
         return
     expire_days_delta = timedelta(days=expire_days)
     expire_compare_date = podreader_run_date - expire_days_delta
-    print("Expiring container records last scanned before " + str(expire_compare_date))
+    log_msg(msg_lvl.info,"Expiring container records last scanned before " + str(expire_compare_date))
     with psycopg.connect(pdsn) as conn:
         cur = conn.cursor(row_factory=dict_row)
         cur.execute("DELETE FROM containers WHERE (NOT container_running) AND last_container_scan_date <= %s;",(expire_compare_date,))
-        print("Expired " + str(cur.rowcount) + " containers.")
+        log_msg(msg_lvl.info,"Expired " + str(cur.rowcount) + " containers.")
         cur.execute("""
             DELETE FROM images WHERE (NOT image_running) AND (last_image_scan_date <= %s) AND (id NOT IN
                 (select imageid from containers where imageid = images.id));
             """,(expire_compare_date,))
-        print("Expired " + str(cur.rowcount) + " images.")
+        log_msg(msg_lvl.info,"Expired " + str(cur.rowcount) + " images.")
 
 def update_views():
     with psycopg.connect(pdsn) as conn:
@@ -372,7 +383,7 @@ def update_views():
         cur2.execute("REFRESH MATERIALIZED VIEW container_vulnerabilities;")
         conn.commit()
         cur2.close()
-        print("Refreshed materialized views.")
+        log_msg(msg_lvl.info,"Refreshed materialized views.")
 
 def update_run_date():
     with psycopg.connect(pdsn) as conn:
@@ -392,6 +403,17 @@ if expire_days_txt.isnumeric():
     expire_days=int(expire_days_txt)
 else:
     expire_days=5
+min_log_lvl_txt=os.environ.get('MIN_LOG_LVL','I').upper()
+if min_log_lvl_txt in ('I','INFO'):
+    min_log_lvl=msg_lvl.info
+elif min_log_lvl_txt in ('D','DEBUG'):
+    min_log_lvl=msg_lvl.debug
+elif min_log_lvl_txt in ('W','WARNING'):
+    min_log_lvl=msg_lvl.warning
+elif min_log_lvl_txt in ('E','ERROR'):
+    min_log_lvl=msg_lvl.error
+else:
+    min_log_lvl=msg_lvl.info
 
 pdsn="host=" + db_host + ' dbname=' + db_name + " user=" + db_user + " password=" + db_password
 podreader_run_date=datetime.now()

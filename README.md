@@ -218,6 +218,12 @@ data:
                    key: DB_PASSWORD
              - name: REFRESH_ALL
                value: 'true'
+             - name: SEND_ALERT
+               value: 'true'
+             - name: ALERT_MANAGER_URL
+               value: 'https://alert.prometheus:9093'
+             - name: APP_URL
+               value: '     
              tty: true
              imagePullPolicy: Always
              resources:
@@ -230,12 +236,18 @@ data:
 
 A few comments on the batch job parameters included here:
 
-* All of the programs (**Podreader**, **Sbomgen**, and **Vulngen**) all need the environment variables DB_HOST, DB_NAME, DB_USER, and DB_PASSWORD passed in order to access the postgres database.
+* All of the programs (**Podreader**, **Sbomgen**, and **Vulngen**) all need the environment variables DB\_HOST, DB\_NAME, DB\_USER, and DB\_PASSWORD passed in order to access the postgres database.
+* All of the programs also accept MIN\_LOG\_LVL which sets the minimum level of logs to print - "D"/"DEBUG", "I"/"INFO", "W"/"WARNING", "E"/"ERROR".
 * **Podreader** takes two additional parameters:
-	* EXPIRE_CONTAINERS - set to "true" to have **Podreader** expire/delete containers which are not runnning after a certain number of days. Parameter defaults to true.
-	* EXPIRE_DAYS - expire containers which have not been active on the cluster for the specified number of days. Five (5) is also the default.
+	* EXPIRE\_CONTAINERS - set to "true" to have **Podreader** expire/delete containers which are not runnning after a certain number of days. Parameter defaults to true.
+	* EXPIRE\_DAYS - expire containers which have not been active on the cluster for the specified number of days. Five (5) is also the default.
+* **Sbomgen** takes one additional parameter:
+	* REFRESH\_ALL - set to "true" to have **Sbomgen** refresh the software BOMS on all currently active pods/containers. Not normally needed since these are usually static. Might be occasionally useful if versions of **syft** add more accuracy/additional detail.
 * **Vulngen** takes one additional parameter:
-	* REFRESH_ALL - set to "true" to have **Vulngen** refresh the vulnerability for all pods currently active in the cluster.  If "false", will only scan for vulnerabilities those pods which haven't yet been scanned.
+	* REFRESH\_ALL - set to "true" to have **Vulngen** refresh the vulnerability for all pods currently active in the cluster.  If "false", will only scan for vulnerabilities those pods which haven't yet been scanned.
+	* SEND\_ALERT - **Vulngen** can be configured to send a "summary" level alert message to your prometheus Alertmanager instance, with information on total number of vulnerabilities found and resolved, including links back to the web ui. Set to "true" to enable this.
+	* ALERT\_MANAGER\_URL - if SEND\_ALERT is true, set ALERT\_MANAGER\_URL to the url to access your alert manager instance, including host and port.
+	* APP\_URL - should be set to the URL where the web UI can be accessed. Used to construct appropriate links in the Alertmanager messages.
 * **Sbomgen** may need high memory requirements if you have very large images in your cluster. Images that are nearly 1GB may take a substantial amount of memory to generate the SBOM. I had seen nearly 10GB of memory usage at some points. You may want to set this to a lower limit and assess as needed. **Vulngen** has lower resource requirements, but can also consume significant memory when processing those same SBOMs. One of the reasons this whole process was split into 3 was to allow jobs to run at the right place, resourcewise in the cluster.
  
 ### JobRunner deployment
@@ -280,9 +292,9 @@ spec:
 ```
 
 The **jobrunner** also takes three additional parameters:
-* JOB_DIR - the jobrunner will take all .yaml files in the directory and try to create batch jobs from them.  Will be processed in alphabetical/numeric order.
-* JOB_NAMESPACE - the namespace where the jobs will be created.
-* JOB_PROCEED_ON_FAIL - whether to keep running the next job if the previous one fails.
+* JOB\_DIR - the jobrunner will take all .yaml files in the directory and try to create batch jobs from them.  Will be processed in alphabetical/numeric order.
+* JOB\_NAMESPACE - the namespace where the jobs will be created.
+* JOB\_PROCEED\_ON_\FAIL - whether to keep running the next job if the previous one fails.
 
 
 ### Vulnweb Deployment
@@ -376,7 +388,7 @@ When you open the web UI, you will be presented with a screen like this:
 
 ![](https://raw.githubusercontent.com/davideshay/vulnscan/main/docs/vulnscan-container.png)
 
-Here you see the 4 primary screens/modes - **Container List**, **Vulnerability List**, **SBOM List**, and **Ignore List**.
+Here you see the 5 primary screens/modes - **Container List**, **Vulnerability List**, **SBOM List**, **Ignore List**, and **Resolved Vulnerabilities**.
 
 ### Container List
 
@@ -391,6 +403,8 @@ From this detail page, if you want extreme granular detail on the SBOM or Vulner
 ### Vulnerability List
 
 This list looks at vulnerabilities across all running containers, and lists all vulnerabilities found across the cluster. From here, you can filter by severity or vulnerability ID (typically a CVE number), which could be useful when searching for recently announced vulnerabilities. Note that sometimes grype will categorize something with a CVE number as a GHSA number, so you might want to check both.
+
+You can filter the list by the columns, and at the top additionally select vulnerabilities which have been added or updated in the recent past, by number of days/hours, or select a specific "run date" of the vulnerability scanner.
 
 From the vulnerability list, you can actually find a link to more data on the specific vulnerability from the publishing sources, just be clicking on the vulnerability ID.
 
@@ -424,4 +438,12 @@ This keeps track of all your current ignore list rules, and allows you to delete
 
 To delete any entries, select the rows as desired (including selecting ranges and/or multiples), then click the delete button at the top.
 
+### Resolved Vulnerabilities
 
+The system keeps track of vulnerabilities that are resolved, or no longer present in an image. This helps to mark progress against securing your cluster, by updating your images to later versions, or updating your own images to be more secure. This data can also be filtered by the column data, including when the vulnerability was resolved.
+
+### Settings
+
+Updates global settings. The available settings are:
+
+* **Match Image without Tags**: This option affects delta processing during the vulnerability scan. During this scan, for every image, for instance docker.io/elasticsearch:7.16.3, a reference scan is used to determine if new vulnerabilities have been found. When checked, the scanner will consider docker.io/elasticsearch:7.16.2 to be the reference image for 7.16.3, and only report new or resolved differences different from 7.16.2. When unchecked, 7.16.3 is considered a new image and all vulnerabilities for it will be reported as new.
