@@ -309,11 +309,12 @@ def read_pods():
     pod_list = v1.list_pod_for_all_namespaces()
     with psycopg.connect(pdsn) as conn:
         for pod in pod_list.items:
-            for sta in pod.status.container_statuses:
-                check_record(conn,pod.metadata.namespace, sta.name, False, sta.image, sta.image_id, pod.metadata.name)
-                apprec={"namespace": pod.metadata.namespace, "container": sta.name, "init_container": False, \
-                        "image": sta.image, "image_id_digest": sta.image_id, "pod": pod.metadata.name}
-                pods.append(apprec)
+            if not (pod.status.container_statuses is None):
+                for sta in pod.status.container_statuses:
+                    check_record(conn,pod.metadata.namespace, sta.name, False, sta.image, sta.image_id, pod.metadata.name)
+                    apprec={"namespace": pod.metadata.namespace, "container": sta.name, "init_container": False, \
+                            "image": sta.image, "image_id_digest": sta.image_id, "pod": pod.metadata.name}
+                    pods.append(apprec)
             if not (pod.status.init_container_statuses is None):
                 for sta in pod.status.init_container_statuses:
                     check_record(conn,pod.metadata.namespace, sta.name, True, sta.image, sta.image_id, pod.metadata.name)

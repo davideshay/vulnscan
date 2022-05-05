@@ -1,4 +1,4 @@
-FROM python:alpine
+FROM python:slim-bullseye
 
 WORKDIR /app
 
@@ -10,8 +10,8 @@ ARG TARGETARCH
 env targetarch=$TARGETARCH
 
 RUN set -x \
-    && apk update \
-    && apk add curl jq \
+    && apt-get update \
+    && apt-get install -y curl jq \
     && mainurl="https://github.com/anchore/grype" \
     && latest_url="${mainurl}/releases/latest" \
     && latest_tag=$(curl -sL -H "Accept:application/json" $latest_url | jq -r .tag_name) \
@@ -22,14 +22,14 @@ RUN set -x \
     && cd /tmp/grypedown \
     && tar -zxf /tmp/grypedown/grype.tar.gz \
     && mv /tmp/grypedown/grype /usr/local/bin \
-    && apk del curl jq \
-    && rm -fR /tmp/grypedown
+    && apt-get purge -y --auto-remove curl jq \
+    && rm -fR /tmp/grypedown 
 
 RUN set -x \
-      && apk update \
-      && apk add gcc libpq-dev musl-dev \
+      && apt-get update \
+      && apt-get install -y gcc libpq-dev  \
       && pip install -r requirements.txt \
-      && apk del gcc
+      && apt-get purge -y --auto-remove gcc
 
 COPY app/* /app
 
